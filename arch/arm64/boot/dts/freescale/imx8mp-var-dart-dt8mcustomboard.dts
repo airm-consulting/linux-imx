@@ -102,7 +102,7 @@
 		height-mm = <87>;
 		label = "gktw70sdae4se";
 		data-mapping = "jeida-24";
-		status = "okay";
+		status = "disabled";
 
 		panel-timing {
 			clock-frequency = <33000000>;
@@ -229,9 +229,9 @@
 		};
 	};
 
-	ov5640_mipi0: ov5640_mipi@3c {
-		compatible = "ovti,ov5640";
-		reg = <0x3c>;
+	ar1335_mipi0: ar1335_mipi@42 {
+		compatible = "ar1335";
+		reg = <0x42>;
 		clocks = <&clk IMX8MP_CLK_IPP_DO_CLKO2>;
 		clock-names = "xclk";
 /* Disabled CLKO2, since DART-MX8MP camera expansion board uses
@@ -243,17 +243,17 @@
 #endif
 		assigned-clock-rates = <24000000>;
 		csi_id = <0>;
-		powerdown-gpios = <&pca6408_1 3 GPIO_ACTIVE_HIGH>;
-		reset-gpios = <&pca6408_1 1 GPIO_ACTIVE_LOW>;
+		pwn-gpios = <&pca6408_1 3 GPIO_ACTIVE_HIGH>;
+		rst-gpios = <&pca6408_1 1 GPIO_ACTIVE_LOW>;
 		mclk = <24000000>;
 		mclk_source = <0>;
 		mipi_csi;
 		status = "okay";
 
 		port {
-			ov5640_mipi_0_ep: endpoint {
+			ar1335_mipi_0_ep: endpoint {
 				remote-endpoint = <&mipi_csi0_ep>;
-				data-lanes = <1 2>;
+				data-lanes = <1 2 3 4>;
 				clock-lanes = <0>;
 			};
 		};
@@ -327,7 +327,7 @@
 		mclk = <24000000>;
 		mclk_source = <0>;
 		mipi_csi;
-		status = "okay";
+		status = "disabled";
 
 		port {
 			ov5640_mipi_1_ep: endpoint {
@@ -357,6 +357,31 @@
 		gpio-controller;
 		#gpio-cells = <2>;
 	};
+
+	bno055_1: bno055_i2c@28 {
+        compatible = "bosch,bno055";
+        reg = <0x28>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_imu>;
+		reset-gpios = <&gpio1 0 GPIO_ACTIVE_HIGH>;
+    };
+	
+	sht4x_1: sht4x@44 {
+		compatible = "sensirion,sht4x";
+		reg = <0x44>;
+	};
+	
+	mcp7941x_1: mcp7941x@6f {
+		compatible = "microchip,mcp7941x";
+		reg = <0x6f>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_rtc>;
+		interrupt-parent = <&gpio1>;
+		interrupts = <15 IRQ_TYPE_EDGE_FALLING>;
+		wakeup-source;
+		status = "disabled";
+	};
+
 };
 
 &flexcan1 {
@@ -560,7 +585,7 @@
 	port@0 {
 		reg = <0>;
 		mipi_csi0_ep: endpoint {
-			remote-endpoint = <&ov5640_mipi_0_ep>;
+			remote-endpoint = <&ar1335_mipi_0_ep>;
 			data-lanes = <2>;
 			csis-hs-settle = <13>;
 			csis-clk-settle = <2>;
@@ -895,4 +920,191 @@
 			MX8MP_IOMUXC_GPIO1_IO15__GPIO1_IO15 				0x1c0
 		>;
 	};
+	
+	pinctrl_imu: imugrp {
+		fsl,pins = <
+			MX8MP_IOMUXC_GPIO1_IO00__GPIO1_IO00 				0xc6
+		>;
+	};
 };
+
+&gpio1 {
+	gpio-line-names =
+		"GPIO1_IO00",
+		"GPIO1_IO01",
+		"GPIO1_IO02",
+		"GPIO1_IO03",
+		"GPIO1_IO04",
+		"GPIO1_IO05",
+		"GPIO1_IO06",
+		"GPIO1_IO07",
+		"GPIO1_IO08",
+		"GPIO1_IO09",
+		"GPIO1_IO10",
+		"GPIO1_IO11",
+		"GPIO1_IO12",
+		"GPIO1_IO13",
+		"GPIO1_IO14",
+		"GPIO1_IO15",
+		"GPIO1_IO16",
+		"GPIO1_IO17",
+		"GPIO1_IO18",
+		"GPIO1_IO19",
+		"GPIO1_IO20",
+		"GPIO1_IO21",
+		"GPIO1_IO22",
+		"GPIO1_IO23",
+		"GPIO1_IO24",
+		"GPIO1_IO25",
+		"GPIO1_IO26",
+		"GPIO1_IO27",
+		"GPIO1_IO28",
+		"GPIO1_IO29",
+		"GPIO1_IO30",
+		"GPIO1_IO31";
+};
+
+&gpio2 {
+	gpio-line-names =
+		"GPIO2_IO00",
+		"GPIO2_IO01",
+		"GPIO2_IO02",
+		"GPIO2_IO03",
+		"GPIO2_IO04",
+		"GPIO2_IO05",
+		"GPIO2_IO06",
+		"GPIO2_IO07",
+		"GPIO2_IO08",
+		"GPIO2_IO09",
+		"GPIO2_IO10",
+		"GPIO2_IO11",
+		"GPIO2_IO12",
+		"GPIO2_IO13",
+		"GPIO2_IO14",
+		"GPIO2_IO15",
+		"GPIO2_IO16",
+		"GPIO2_IO17",
+		"GPIO2_IO18",
+		"GPIO2_IO19",
+		"GPIO2_IO20",
+		"GPIO2_IO21",
+		"GPIO2_IO22",
+		"GPIO2_IO23",
+		"GPIO2_IO24",
+		"GPIO2_IO25",
+		"GPIO2_IO26",
+		"GPIO2_IO27",
+		"GPIO2_IO28",
+		"GPIO2_IO29",
+		"GPIO2_IO30",
+		"GPIO2_IO31";
+};
+
+&gpio3 {
+	gpio-line-names =
+		"GPIO3_IO00",
+		"GPIO3_IO01",
+		"GPIO3_IO02",
+		"GPIO3_IO03",
+		"GPIO3_IO04",
+		"GPIO3_IO05",
+		"GPIO3_IO06",
+		"GPIO3_IO07",
+		"GPIO3_IO08",
+		"GPIO3_IO09",
+		"GPIO3_IO10",
+		"GPIO3_IO11",
+		"GPIO3_IO12",
+		"GPIO3_IO13",
+		"GPIO3_IO14",
+		"GPIO3_IO15",
+		"GPIO3_IO16",
+		"GPIO3_IO17",
+		"GPIO3_IO18",
+		"GPIO3_IO19",
+		"GPIO3_IO20",
+		"GPIO3_IO21",
+		"GPIO3_IO22",
+		"GPIO3_IO23",
+		"GPIO3_IO24",
+		"GPIO3_IO25",
+		"GPIO3_IO26",
+		"GPIO3_IO27",
+		"GPIO3_IO28",
+		"GPIO3_IO29",
+		"GPIO3_IO30",
+		"GPIO3_IO31";
+};
+
+&gpio4 {
+	gpio-line-names =
+		"GPIO4_IO00",
+		"GPIO4_IO01",
+		"GPIO4_IO02",
+		"GPIO4_IO03",
+		"GPIO4_IO04",
+		"GPIO4_IO05",
+		"GPIO4_IO06",
+		"GPIO4_IO07",
+		"GPIO4_IO08",
+		"GPIO4_IO09",
+		"GPIO4_IO10",
+		"GPIO4_IO11",
+		"GPIO4_IO12",
+		"GPIO4_IO13",
+		"GPIO4_IO14",
+		"GPIO4_IO15",
+		"GPIO4_IO16",
+		"GPIO4_IO17",
+		"GPIO4_IO18",
+		"GPIO4_IO19",
+		"GPIO4_IO20",
+		"GPIO4_IO21",
+		"GPIO4_IO22",
+		"GPIO4_IO23",
+		"GPIO4_IO24",
+		"GPIO4_IO25",
+		"GPIO4_IO26",
+		"GPIO4_IO27",
+		"GPIO4_IO28",
+		"GPIO4_IO29",
+		"GPIO4_IO30",
+		"GPIO4_IO31";
+};
+
+&gpio5 {
+	gpio-line-names =
+		"GPIO5_IO00",
+		"GPIO5_IO01",
+		"GPIO5_IO02",
+		"GPIO5_IO03",
+		"GPIO5_IO04",
+		"GPIO5_IO05",
+		"GPIO5_IO06",
+		"GPIO5_IO07",
+		"GPIO5_IO08",
+		"GPIO5_IO09",
+		"GPIO5_IO10",
+		"GPIO5_IO11",
+		"GPIO5_IO12",
+		"GPIO5_IO13",
+		"GPIO5_IO14",
+		"GPIO5_IO15",
+		"GPIO5_IO16",
+		"GPIO5_IO17",
+		"GPIO5_IO18",
+		"GPIO5_IO19",
+		"GPIO5_IO20",
+		"GPIO5_IO21",
+		"GPIO5_IO22",
+		"GPIO5_IO23",
+		"GPIO5_IO24",
+		"GPIO5_IO25",
+		"GPIO5_IO26",
+		"GPIO5_IO27",
+		"GPIO5_IO28",
+		"GPIO5_IO29",
+		"GPIO5_IO30",
+		"GPIO5_IO31";
+};
+

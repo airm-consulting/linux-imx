@@ -24,10 +24,11 @@
 	status = "disabled";
 };
 
+#if 0
 &ecspi1 {
 	status = "disabled";
 };
-
+#endif
 
 &flexcan1 {
 	status = "disabled";
