@@ -28,6 +28,16 @@ config DVB_PLATFORM_DRIVERS
 	help
 	  Say Y here to enable support for platform-specific Digital TV drivers.
 
+config VIDEO_ECAM
+	tristate "e-con camera sensor support"
+	depends on I2C && VIDEO_V4L2 && VIDEO_V4L2_SUBDEV_API
+	help
+	  This config is used to enable codes which are used to
+	  support econ camera and to disable ISI control codes.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called based on sensor name.
+
 config V4L_MEM2MEM_DRIVERS
 	bool "Memory-to-memory multimedia devices"
 	depends on VIDEO_DEV
@@ -109,5 +119,6 @@ source "drivers/media/platform/ti/Kconfig"
 source "drivers/media/platform/verisilicon/Kconfig"
 source "drivers/media/platform/via/Kconfig"
 source "drivers/media/platform/xilinx/Kconfig"
+
 
 endif # MEDIA_PLATFORM_DRIVERS
