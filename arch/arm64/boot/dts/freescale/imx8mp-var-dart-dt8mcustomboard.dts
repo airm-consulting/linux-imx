@@ -382,6 +382,32 @@
 		status = "disabled";
 	};
 
+	tla2024_1: tla2024@48 {
+		compatible = "ti,tla2024";
+		reg = <0x48>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		channel@0 {
+			reg = <4>;
+			ti,gain = <1>;
+			ti,datarate = <4>;
+		};
+		channel@1 {
+			reg = <5>;
+			ti,gain = <1>;
+			ti,datarate = <4>;
+		};
+		channel@2 {
+			reg = <6>;
+			ti,gain = <1>;
+			ti,datarate = <4>;
+		};
+		channel@3 {
+			reg = <7>;
+			ti,gain = <1>;
+			ti,datarate = <4>;
+		};
+	};
 };
 
 &flexcan1 {
