@@ -118,6 +118,7 @@ struct watchdog_device {
 #define WDOG_HW_RUNNING		3	/* True if HW watchdog running */
 #define WDOG_STOP_ON_UNREGISTER	4	/* Should be stopped on unregister */
 #define WDOG_NO_PING_ON_SUSPEND	5	/* Ping worker should be stopped on suspend */
+#define WDOG_NO_AUTO_PING	6	/* Ping worker should NOT be used */
 	struct list_head deferred;
 };
 
@@ -162,6 +163,12 @@ static inline void watchdog_stop_on_unregister(struct watchdog_device *wdd)
 static inline void watchdog_stop_ping_on_suspend(struct watchdog_device *wdd)
 {
 	set_bit(WDOG_NO_PING_ON_SUSPEND, &wdd->status);
+}
+
+/* Use the following function to disable the wdog ping worker completely */
+static inline void watchdog_stop_auto_ping(struct watchdog_device *wdd)
+{
+	set_bit(WDOG_NO_AUTO_PING, &wdd->status);
 }
 
 /* Use the following function to check if a timeout value is invalid */

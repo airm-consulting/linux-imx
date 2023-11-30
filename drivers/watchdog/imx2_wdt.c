@@ -56,7 +56,7 @@
 #define IMX2_WDT_WMCR		0x08		/* Misc Register */
 
 #define IMX2_WDT_MAX_TIME	128U
-#define IMX2_WDT_DEFAULT_TIME	60		/* in seconds */
+#define IMX2_WDT_DEFAULT_TIME	IMX2_WDT_MAX_TIME		/* in seconds */
 
 #define WDOG_SEC_TO_COUNT(s)	((s * 2 - 1) << 8)
 
@@ -67,6 +67,8 @@ struct imx2_wdt_device {
 	bool ext_reset;
 	bool clk_is_on;
 	bool no_ping;
+	bool disable_auto_ping;
+	bool active_in_suspend;
 };
 
 static bool nowayout = WATCHDOG_NOWAYOUT;
@@ -127,16 +129,22 @@ static inline void imx2_wdt_setup(struct watchdog_device *wdog)
 
 	regmap_read(wdev->regmap, IMX2_WDT_WCR, &val);
 
-	/* Suspend timer in low power mode, write once-only */
-	val |= IMX2_WDT_WCR_WDZST;
+	if (wdev->active_in_suspend) {
+		/* watchdog active in low power mode, write once-only */
+		val &= ~IMX2_WDT_WCR_WDZST;
+	} else {
+		/* watchdog NOT active in low power mode, write once-only */
+		val |= IMX2_WDT_WCR_WDZST;
+	}
 	/* Strip the old watchdog Time-Out value */
 	val &= ~IMX2_WDT_WCR_WT;
-	/* Generate internal chip-level reset if WDOG times out */
-	if (!wdev->ext_reset)
-		val &= ~IMX2_WDT_WCR_WRE;
-	/* Or if external-reset assert WDOG_B reset only on time-out */
-	else
+	if (wdev->ext_reset) {
+		/* external-reset assert WDOG_B reset only on time-out */
 		val |= IMX2_WDT_WCR_WRE;
+	} else {
+		/* Generate internal chip-level reset if WDOG times out */
+		val &= ~IMX2_WDT_WCR_WRE;
+	}
 	/* Keep Watchdog Disabled */
 	val &= ~IMX2_WDT_WCR_WDE;
 	/* Set the watchdog's Time-Out value */
@@ -311,8 +319,9 @@ static int __init imx2_wdt_probe(struct platform_device *pdev)
 	regmap_read(wdev->regmap, IMX2_WDT_WRSR, &val);
 	wdog->bootstatus = val & IMX2_WDT_WRSR_TOUT ? WDIOF_CARDRESET : 0;
 
-	wdev->ext_reset = of_property_read_bool(dev->of_node,
-						"fsl,ext-reset-output");
+	wdev->ext_reset = of_property_read_bool(dev->of_node, "fsl,ext-reset-output");
+	wdev->disable_auto_ping = of_property_read_bool(dev->of_node, "fsl,disable-auto-ping");
+	wdev->active_in_suspend = of_property_read_bool(dev->of_node, "fsl,active-in-suspend");
 	/*
 	 * The i.MX7D doesn't support low power mode, so we need to ping the watchdog
 	 * during suspend.
@@ -323,8 +332,12 @@ static int __init imx2_wdt_probe(struct platform_device *pdev)
 	watchdog_set_nowayout(wdog, nowayout);
 	watchdog_set_restart_priority(wdog, 128);
 	watchdog_init_timeout(wdog, timeout, dev);
-	if (wdev->no_ping)
+	if (wdev->no_ping) {
 		watchdog_stop_ping_on_suspend(wdog);
+	}
+	if (wdev->disable_auto_ping) {
+		watchdog_stop_auto_ping(wdog);
+	}
 
 	if (imx2_wdt_is_running(wdev)) {
 		imx2_wdt_set_timeout(wdog, wdog->timeout);

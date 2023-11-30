@@ -91,6 +91,11 @@ static inline bool watchdog_need_worker(struct watchdog_device *wdd)
 	 * device, we take care of feeding the watchdog if it is
 	 * running.
 	 */
+
+	/* Disable worker thread if auto ping disabled */
+	if (test_bit(WDOG_NO_AUTO_PING, &wdd->status))
+		return false;
+
 	return (hm && watchdog_active(wdd) && t > hm) ||
 		(t && !watchdog_active(wdd) && watchdog_hw_running(wdd));
 }
@@ -205,6 +210,9 @@ static bool watchdog_worker_should_ping(struct watchdog_core_data *wd_data)
 	struct watchdog_device *wdd = wd_data->wdd;
 
 	if (!wdd)
+		return false;
+
+	if (test_bit(WDOG_NO_AUTO_PING, &wdd->status))
 		return false;
 
 	if (watchdog_active(wdd))
