@@ -35,10 +35,12 @@
 
 #define IMX2_WDT_WCR		0x00		/* Control Register */
 #define IMX2_WDT_WCR_WT		(0xFF << 8)	/* -> Watchdog Timeout Field */
+#define IMX2_WDT_WCR_SRE	BIT(6)		/* -> External Reset WDOG_B */
 #define IMX2_WDT_WCR_WDA	BIT(5)		/* -> External Reset WDOG_B */
 #define IMX2_WDT_WCR_SRS	BIT(4)		/* -> Software Reset Signal */
 #define IMX2_WDT_WCR_WRE	BIT(3)		/* -> WDOG Reset Enable */
 #define IMX2_WDT_WCR_WDE	BIT(2)		/* -> Watchdog Enable */
+#define IMX2_WDT_WCR_WDBG	BIT(1)		/* -> Watchdog Enable */
 #define IMX2_WDT_WCR_WDZST	BIT(0)		/* -> Watchdog timer Suspend */
 
 #define IMX2_WDT_WSR		0x02		/* Service Register */
@@ -46,7 +48,9 @@
 #define IMX2_WDT_SEQ2		0xAAAA		/* -> service sequence 2 */
 
 #define IMX2_WDT_WRSR		0x04		/* Reset Status Register */
-#define IMX2_WDT_WRSR_TOUT	BIT(1)		/* -> Reset due to Timeout */
+#define IMX2_WDT_WRSR_SFTW	BIT(0)		/* -> Reset due to Timeout */
+#define IMX2_WDT_WRSR_TOUT	BIT(1)		/* -> Reset due to Software reset */
+#define IMX2_WDT_WRSR_POR	BIT(4)		/* -> Reset due to POR */
 
 #define IMX2_WDT_WICR		0x06		/* Interrupt Control Register */
 #define IMX2_WDT_WICR_WIE	BIT(15)		/* -> Interrupt Enable */
@@ -115,6 +119,32 @@ static int imx2_wdt_restart(struct watchdog_device *wdog, unsigned long action,
 	 */
 	regmap_write(wdev->regmap, IMX2_WDT_WCR, wcr_enable);
 	regmap_write(wdev->regmap, IMX2_WDT_WCR, wcr_enable);
+
+	/* wait for reset to assert... */
+	mdelay(500);
+
+	return 0;
+}
+
+static int imx2_wdt_reset(struct imx2_wdt_device *wdev, bool warm)
+{
+	unsigned int regval = IMX2_WDT_WCR_SRE;
+
+	if (warm) {
+		regval |= IMX2_WDT_WCR_WDA;
+	}
+
+	/* Assert SRS signal */
+	regmap_write(wdev->regmap, IMX2_WDT_WCR, regval);
+	/*
+	 * Due to imx6q errata ERR004346 (WDOG: WDOG SRS bit requires to be
+	 * written twice), we add another two writes to ensure there must be at
+	 * least two writes happen in the same one 32kHz clock period.  We save
+	 * the target check here, since the writes shouldn't be a huge burden
+	 * for other platforms.
+	 */
+	regmap_write(wdev->regmap, IMX2_WDT_WCR, regval);
+	regmap_write(wdev->regmap, IMX2_WDT_WCR, regval);
 
 	/* wait for reset to assert... */
 	mdelay(500);
@@ -241,6 +271,41 @@ static int imx2_wdt_start(struct watchdog_device *wdog)
 	return imx2_wdt_ping(wdog);
 }
 
+static long imx2_wdt_ioctl(struct watchdog_device *wdog, unsigned int cmd, unsigned long arg)
+{
+	int err = 0;
+	struct imx2_wdt_device *wdev;
+
+	// Assume we have lock
+
+	if (!wdog) {
+		err = -ENODEV;
+		goto out_ioctl;
+	}
+	wdev = watchdog_get_drvdata(wdog);
+	if (!wdev) {
+		err = -ENODEV;
+		goto out_ioctl;
+	}
+
+	switch (cmd) {
+	case WDIOC_COLDRESET:
+		// This call should not return
+		err = imx2_wdt_reset(wdev, false);
+		break;
+	case WDIOC_WARMRESET:
+		// This call should not return
+		err = imx2_wdt_reset(wdev, true);
+		break;
+	default:
+		err = -ENOIOCTLCMD;
+		break;
+	}
+
+out_ioctl:
+	return err;
+}
+
 static const struct watchdog_ops imx2_wdt_ops = {
 	.owner = THIS_MODULE,
 	.start = imx2_wdt_start,
@@ -248,6 +313,7 @@ static const struct watchdog_ops imx2_wdt_ops = {
 	.set_timeout = imx2_wdt_set_timeout,
 	.set_pretimeout = imx2_wdt_set_pretimeout,
 	.restart = imx2_wdt_restart,
+	.ioctl = imx2_wdt_ioctl,
 };
 
 static const struct regmap_config imx2_wdt_regmap_config = {
@@ -317,7 +383,7 @@ static int __init imx2_wdt_probe(struct platform_device *pdev)
 	wdev->clk_is_on = true;
 
 	regmap_read(wdev->regmap, IMX2_WDT_WRSR, &val);
-	wdog->bootstatus = val & IMX2_WDT_WRSR_TOUT ? WDIOF_CARDRESET : 0;
+	wdog->bootstatus = val & IMX2_WDT_WRSR_POR ? 0 : WDIOF_CARDRESET;
 
 	wdev->ext_reset = of_property_read_bool(dev->of_node, "fsl,ext-reset-output");
 	wdev->disable_auto_ping = of_property_read_bool(dev->of_node, "fsl,disable-auto-ping");
