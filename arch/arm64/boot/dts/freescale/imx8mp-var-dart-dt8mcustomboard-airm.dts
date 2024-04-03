@@ -52,7 +52,7 @@
 				<48000>,
 				<96000>,
 				<192000>;
-		status = "okay";
+		status = "disabled";
 	};
 
 	sound-xcvr {
@@ -68,7 +68,7 @@
 };
 
 &aud2htx {
-	status = "okay";
+	status = "disabled";
 };
 
 &i2c1 {
@@ -353,6 +353,7 @@
 	cd-gpios = <&gpio2 12 GPIO_ACTIVE_LOW>;
 	vmmc-supply = <&reg_usdhc2_vmmc>;
 	bus-width = <4>;
+	max-frequency = <100000000>;
 	status = "okay";
 };
 
@@ -435,7 +436,7 @@
 
 &xcvr {
 	#sound-dai-cells = <0>;
-	status = "okay";
+	status = "disabled";
 };
 
 &sai3 {
@@ -477,8 +478,8 @@
 			MX8MP_IOMUXC_SAI2_TXD0__GPIO4_IO26					0xA0			// LTE Wake (input, active low, ext 56K PU 3V3)
 			MX8MP_IOMUXC_GPIO1_IO09__GPIO1_IO09					0x4			// LoRa Power Enable (ext 47K PD)
 			MX8MP_IOMUXC_SAI5_RXD2__GPIO3_IO23					0x24			// LoRa Reset (active low, ext 10K PU 3V3)
-			MX8MP_IOMUXC_SD2_RESET_B__GPIO2_IO19				0xA0			// LoRa Busy (input)
-			MX8MP_IOMUXC_SD1_RESET_B__GPIO2_IO10				0xA4			// LoRa DIO (input/output)
+			MX8MP_IOMUXC_SD2_RESET_B__GPIO2_IO19				0x20			// Not Used (1.8V)
+			MX8MP_IOMUXC_SD1_RESET_B__GPIO2_IO10				0x20			// Not Used (1.8V)
 			MX8MP_IOMUXC_GPIO1_IO05__GPIO1_IO05					0x4			// GNSS Power Enable (ext 100K PD)
 			MX8MP_IOMUXC_GPIO1_IO01__GPIO1_IO01					0x124			// GNSS Interrupt (input)
 			MX8MP_IOMUXC_GPIO1_IO11__GPIO1_IO11					0x24			// GNSS Reset (active low)
@@ -497,8 +498,8 @@
 			MX8MP_IOMUXC_NAND_DATA03__GPIO3_IO09				0x20			// Expansion GPIO3
 			MX8MP_IOMUXC_NAND_DATA00__GPIO3_IO06				0x20			// Expansion GPIO2
 			MX8MP_IOMUXC_NAND_DATA02__GPIO3_IO08				0x20			// Expansion GPIO1
-			MX8MP_IOMUXC_SPDIF_RX__GPIO5_IO04					0x20			// Spare GPIO
-			MX8MP_IOMUXC_SPDIF_EXT_CLK__GPIO5_IO05				0x20			// Spare GPIO
+			MX8MP_IOMUXC_SPDIF_RX__GPIO5_IO04					0xA4			// LoRa DIO (input/output)
+			MX8MP_IOMUXC_SPDIF_EXT_CLK__GPIO5_IO05				0xA0			// LoRa Busy (input)
 			MX8MP_IOMUXC_SPDIF_TX__GPIO5_IO03					0x20			// Spare GPIO
 
 		>;
@@ -534,8 +535,8 @@
 			MX8MP_IOMUXC_SAI2_TXD0__GPIO4_IO26					0xA0			// LTE Wake (input, active low, ext 56K PU 3V3)
 			MX8MP_IOMUXC_GPIO1_IO09__GPIO1_IO09					0x24			// LoRa Power Enable (ext 47K PD)
 			MX8MP_IOMUXC_SAI5_RXD2__GPIO3_IO23					0x24			// LoRa Reset (active low, ext 10K PU 3V3)
-			MX8MP_IOMUXC_SD2_RESET_B__GPIO2_IO19				0xA0			// LoRa Busy (input)
-			MX8MP_IOMUXC_SD1_RESET_B__GPIO2_IO10				0xA4			// LoRa DIO (input/output)
+			MX8MP_IOMUXC_SD2_RESET_B__GPIO2_IO19				0x20			// Not Used (1.8V)
+			MX8MP_IOMUXC_SD1_RESET_B__GPIO2_IO10				0x20			// Not Used (1.8V)
 			MX8MP_IOMUXC_GPIO1_IO05__GPIO1_IO05					0x4			// GNSS Power Enable (ext 100K PD)
 			MX8MP_IOMUXC_GPIO1_IO01__GPIO1_IO01					0x124			// GNSS Interrupt (input)
 			MX8MP_IOMUXC_GPIO1_IO11__GPIO1_IO11					0x24			// GNSS Reset (active low)
@@ -554,8 +555,8 @@
 			MX8MP_IOMUXC_NAND_DATA03__GPIO3_IO09				0x20			// Expansion GPIO3
 			MX8MP_IOMUXC_NAND_DATA00__GPIO3_IO06				0x20			// Expansion GPIO2
 			MX8MP_IOMUXC_NAND_DATA02__GPIO3_IO08				0x20			// Expansion GPIO1
-			MX8MP_IOMUXC_SPDIF_RX__GPIO5_IO04					0x20			// Spare GPIO
-			MX8MP_IOMUXC_SPDIF_EXT_CLK__GPIO5_IO05				0x20			// Spare GPIO
+			MX8MP_IOMUXC_SPDIF_RX__GPIO5_IO04					0xA4			// LoRa DIO (input/output)
+			MX8MP_IOMUXC_SPDIF_EXT_CLK__GPIO5_IO05				0xA0			// LoRa Busy (input)
 			MX8MP_IOMUXC_SPDIF_TX__GPIO5_IO03					0x20			// Spare GPIO
 
 		>;
