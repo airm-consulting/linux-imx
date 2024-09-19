@@ -119,10 +119,8 @@
 	};
 	
 	bno055_1: bno055_i2c@28 {
-        compatible = "bosch,bno055";
-        reg = <0x28>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_imu>;
+		compatible = "bosch,bno055";
+		reg = <0x28>;
 		reset-gpios = <&gpio1 6 GPIO_ACTIVE_HIGH>;
     };
 };
@@ -484,6 +482,7 @@
 			MX8MP_IOMUXC_GPIO1_IO01__GPIO1_IO01					0x124			// GNSS Interrupt (input)
 			MX8MP_IOMUXC_GPIO1_IO11__GPIO1_IO11					0x24			// GNSS Reset (active low)
 			MX8MP_IOMUXC_GPIO1_IO08__GPIO1_IO08					0xA0			// IMU Interrupt (input, ext 10K PU 3V3)
+			MX8MP_IOMUXC_GPIO1_IO06__GPIO1_IO06 				0x24        // IMU Reset (active low, ext 10K PU 3V3)
 			MX8MP_IOMUXC_SAI1_RXC__GPIO4_IO01					0x4			// SDI-12 Enable (ext 10K PD)
 			MX8MP_IOMUXC_GPIO1_IO14__GPIO1_IO14					0x84			// SDI12_A (input/output)
 			MX8MP_IOMUXC_GPIO1_IO12__GPIO1_IO12					0x84			// SDI12_B (input/output)
@@ -541,6 +540,7 @@
 			MX8MP_IOMUXC_GPIO1_IO01__GPIO1_IO01					0x124			// GNSS Interrupt (input)
 			MX8MP_IOMUXC_GPIO1_IO11__GPIO1_IO11					0x24			// GNSS Reset (active low)
 			MX8MP_IOMUXC_GPIO1_IO08__GPIO1_IO08					0xA0			// IMU Interrupt (input, ext 10K PU 3V3)
+			MX8MP_IOMUXC_GPIO1_IO06__GPIO1_IO06 				0x24        // IMU Reset (active low, ext 10K PU 3V3)
 			MX8MP_IOMUXC_SAI1_RXC__GPIO4_IO01					0x24			// SDI-12 Enable (ext 10K PD)
 			MX8MP_IOMUXC_GPIO1_IO14__GPIO1_IO14					0x84			// SDI12_A (input/output)
 			MX8MP_IOMUXC_GPIO1_IO12__GPIO1_IO12					0x84			// SDI12_B (input/output)
@@ -706,11 +706,6 @@
 		>;
 	};
 	
-	pinctrl_imu: imugrp {
-		fsl,pins = <
-			MX8MP_IOMUXC_GPIO1_IO06__GPIO1_IO06 				0xc4
-		>;
-	};
 
 };
 
