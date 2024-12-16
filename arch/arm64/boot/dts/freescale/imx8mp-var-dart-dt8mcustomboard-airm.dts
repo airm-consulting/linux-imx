@@ -86,6 +86,21 @@
 	sda-gpios = <&gpio5 17 GPIO_ACTIVE_HIGH>;
 	status = "okay";
 
+	pca9536_41_1: pca9536@41 {
+      /* For onsemi GPIO expander */
+      compatible = "nxp,pca9536";
+      gpio-controller;
+      #gpio-cells = <2>;
+      reg = <0x41>;
+      standard-regs-fallback;
+      gpio-line-names =
+      "GPIO6_IO00",
+      "GPIO6_IO01",
+      "GPIO6_IO02",
+      "GPIO6_IO03";
+      status = "okay";
+	};
+
 	sht4x_1: sht4x@44 {
 		compatible = "sensirion,sht4x";
 		reg = <0x44>;
