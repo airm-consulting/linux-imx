@@ -514,7 +514,7 @@
 			MX8MP_IOMUXC_NAND_DATA02__GPIO3_IO08				0x84			// Expansion GPIO1 (input/output)
 			MX8MP_IOMUXC_SPDIF_RX__GPIO5_IO04					0xA4			// LoRa DIO (input/output)
 			MX8MP_IOMUXC_SPDIF_EXT_CLK__GPIO5_IO05				0xA0			// LoRa Busy (input)
-			MX8MP_IOMUXC_SPDIF_TX__GPIO5_IO03					0x20			// Spare GPIO
+			MX8MP_IOMUXC_SPDIF_TX__GPIO5_IO03					0x84			// Defogger On (ext 10K PD)
 
 		>;
 	};
@@ -572,7 +572,7 @@
 			MX8MP_IOMUXC_NAND_DATA02__GPIO3_IO08				0x20			// Expansion GPIO1
 			MX8MP_IOMUXC_SPDIF_RX__GPIO5_IO04					0xA4			// LoRa DIO (input/output)
 			MX8MP_IOMUXC_SPDIF_EXT_CLK__GPIO5_IO05				0xA0			// LoRa Busy (input)
-			MX8MP_IOMUXC_SPDIF_TX__GPIO5_IO03					0x20			// Spare GPIO
+			MX8MP_IOMUXC_SPDIF_TX__GPIO5_IO03					0x20			// Defogger On (ext 10K PD)
 
 		>;
 	};
