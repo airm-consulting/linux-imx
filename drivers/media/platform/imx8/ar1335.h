@@ -31,11 +31,12 @@
 #define AR1335_DEFAULT_WIDTH    640
 #define AR1335_DEFAULT_HEIGHT	480
 
-#define AR1335_MAX_FORMAT_SUPPORTED	1
+#define AR1335_MAX_FORMAT_SUPPORTED	2
 
-#define AR1335_DEFAULT_FPS	120
+#define AR1335_DEFAULT_FPS	100
 
-#define AR1335_DEFAULT_DATAFMT	MEDIA_BUS_FMT_YUYV8_2X8 
+#define AR1335_DEFAULT_DATAFMT	MEDIA_BUS_FMT_UYVY8_2X8
+#define AR1335_DEFAULT_DATAFMT_YUYV  MEDIA_BUS_FMT_YUYV8_2X8
 #define AR1335_DEFAULT_COLORSPACE V4L2_COLORSPACE_SRGB
 
 
@@ -104,8 +105,6 @@ typedef enum _cmd_id {
 	CMD_ID_ISP_PUP = 0x16,
 
 	/* Reserved - 0x17 to 0xFE (except 0x43) */
-	CMD_ID_LANE_CONFIG = 0x17,
-	CMD_ID_MIPI_CLK_CONFIG = 0x18,
 
 	CMD_ID_UNKNOWN = 0xFF,
 
@@ -138,6 +137,11 @@ enum {
 	EXT_CTRL_TYPE_PTR16 = 0x05,
 	EXT_CTRL_TYPE_PTR32 = 0x06,
 	EXT_CTRL_TYPE_VOID = 0x07,
+};
+
+enum {
+	POWER_OFF = 0x00,
+	POWER_ON = 0x01,
 };
 
 /* Stream and Control Info Struct */
@@ -198,8 +202,9 @@ typedef struct _isp_ctrl_info_std {
 	ISP_CTRL_UI_INFO ctrl_ui_data;
 } ISP_CTRL_INFO;
 
-struct ar1335 {
+struct ar1335_ff {
 	int numctrls;
+//	struct v4l2_ctrl_handler ctrl_handler;
 	struct v4l2_subdev subdev;
 	struct i2c_client *i2c_client;
 	uint16_t frate_index;
@@ -209,6 +214,7 @@ struct ar1335 {
 	u8 mclk_source;
 	struct clk *sensor_clk;
 
+	bool soc_format_check; /*Checking SOC 1 for mini , 0 for others*/
 	int csi;
 
 	/*
@@ -237,15 +243,13 @@ struct ar1335 {
 		unsigned int * framerates;
 		int num_framerates;
 		int mode;
+		unsigned int format_fourcc;
 	} *mcu_cam_frmfmt;
 
+	int *streamdb;
 	int power_on;
 
-	uint16_t mipi_lane_config;
-	uint16_t mipi_clk_config;
-
 	struct v4l2_ctrl *ctrls[];
-	
 };
 
 static ISP_STREAM_INFO *stream_info = NULL;
@@ -253,11 +257,10 @@ static ISP_CTRL_INFO *mcu_ctrl_info = NULL;
 
 /* Total formats */
 static int num_ctrls = 0;
-static int *streamdb;
 static uint32_t *ctrldb;
 
 /* Mutex for I2C lock */
-DEFINE_MUTEX(mcu_i2c_mutex_1335);
+DEFINE_MUTEX(mcu_i2c_mutex_1335_ff);
 
 static int ar1335_read(struct i2c_client *client, u8 * val, u32 count);
 static int ar1335_write(struct i2c_client *client, u8 * val, u32 count);

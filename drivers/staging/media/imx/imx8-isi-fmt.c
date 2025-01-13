@@ -8,12 +8,12 @@
 
 struct mxc_isi_fmt mxc_isi_out_formats[] = {
 	{
-		.name		= "UYVY-16",
-		.fourcc		= V4L2_PIX_FMT_UYVY,
-		.depth		= { 16 },
-		.color		= MXC_ISI_OUT_FMT_YUV422_1P8P,
-		.memplanes	= 1,
-		.colplanes	= 1,
+		.name           = "UYVY-16",
+		.fourcc         = V4L2_PIX_FMT_UYVY,
+		.depth          = { 16 },
+		.color          = MXC_ISI_OUT_FMT_YUV422_1P8P,
+		.memplanes      = 1,
+		.colplanes      = 1,
 		.mbus_code  = MEDIA_BUS_FMT_UYVY8_2X8,
 	}, {
 		.name		= "RGB565",
@@ -50,7 +50,15 @@ struct mxc_isi_fmt mxc_isi_out_formats[] = {
 		.memplanes	= 1,
 		.colplanes	= 1,
 		.align		= 3,
-		.mbus_code	= MEDIA_BUS_FMT_YUYV8_1X16,
+		.mbus_code	= MEDIA_BUS_FMT_YUYV8_2X8,
+	}, {
+		.name           = "MJPEG-422",
+		.fourcc         = V4L2_PIX_FMT_MJPEG,
+		.depth          = { 8 },
+		.color          = MXC_ISI_OUT_FMT_RAW8,
+		.memplanes      = 1,
+		.colplanes      = 1,
+		.mbus_code  	= MEDIA_BUS_FMT_Y8_1X8,
 	}, {
 		.name		= "YUV32 (X-Y-U-V)",
 		.fourcc		= V4L2_PIX_FMT_YUV32,

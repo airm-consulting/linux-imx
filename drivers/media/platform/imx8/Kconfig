@@ -7,8 +7,7 @@ config IMX8_MIPI_CSI2_YAV
 
 config MXC_CAMERA_AR1335
         tristate "AR1335 Camera driver support"
-        depends on I2C && VIDEO_ECAM
-        default m
+        default y
         help
           Enable support for video4linux camera sensor driver for eCAM131_CUIMX8
 

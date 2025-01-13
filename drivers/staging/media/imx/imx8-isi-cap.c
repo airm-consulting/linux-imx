@@ -54,6 +54,12 @@ struct mxc_isi_fmt mxc_isi_src_formats[] = {
 		.memplanes	= 1,
 		.colplanes	= 1,
 		.align		= 2,
+	}, {
+                .name           = "MJPEG (M-J-P-G)",
+                .fourcc         = V4L2_PIX_FMT_MJPEG,
+                .depth          = { 8 },
+                .memplanes      = 1,
+                .colplanes      = 1,
 	}
 };
 
@@ -98,8 +104,12 @@ struct mxc_isi_fmt *mxc_isi_get_src_fmt(struct v4l2_subdev_format *sd_fmt)
 	    sd_fmt->format.code == MEDIA_BUS_FMT_AYUV8_1X32 ||
 	    sd_fmt->format.code == MEDIA_BUS_FMT_UYVY8_2X8 ||
 	    sd_fmt->format.code == MEDIA_BUS_FMT_UYVY8_1X16||
-	    sd_fmt->format.code == MEDIA_BUS_FMT_YUYV8_2X8)
+	    sd_fmt->format.code == MEDIA_BUS_FMT_YUYV8_2X8){
 		index = 1;
+	}
+	else if(sd_fmt->format.code == MEDIA_BUS_FMT_Y8_1X8){
+		index = 2;
+	}
 	else
 		index = 0;
 	return &mxc_isi_src_formats[index];
@@ -966,7 +976,14 @@ static int mxc_isi_source_fmt_init(struct mxc_isi_cap_dev *isi_cap)
 
 	src_fmt.pad = source_pad->index;
 	src_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
-	src_fmt.format.code = MEDIA_BUS_FMT_UYVY8_1X16;
+	
+	if(dst_f->fmt->mbus_code == MEDIA_BUS_FMT_Y8_1X8) {
+		src_fmt.format.code = MEDIA_BUS_FMT_Y8_1X8;
+	}
+	else {
+		src_fmt.format.code = MEDIA_BUS_FMT_UYVY8_2X8;
+	}
+
 	src_fmt.format.width = dst_f->width;
 	src_fmt.format.height = dst_f->height;
 	ret = v4l2_subdev_call(src_sd, pad, set_fmt, NULL, &src_fmt);
@@ -1258,7 +1275,9 @@ static int mxc_isi_cap_enum_framesizes(struct file *file, void *priv,
 				       struct v4l2_frmsizeenum *fsize)
 {
 	struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
+#ifndef CONFIG_VIDEO_ECAM
 	struct device_node *parent;
+#endif
 	struct v4l2_subdev *sd;
 	struct mxc_isi_fmt *fmt;
 	struct v4l2_subdev_frame_size_enum fse = {
@@ -1282,11 +1301,13 @@ static int mxc_isi_cap_enum_framesizes(struct file *file, void *priv,
 	if (ret)
 		return ret;
 
+#ifndef CONFIG_VIDEO_ECAM
 	parent = of_get_parent(isi_cap->pdev->dev.of_node);
 	if ((of_device_is_compatible(parent, "fsl,imx8mp-isi")) &&
 	    (fse.max_width > ISI_2K || fse.min_width > ISI_2K) &&
 	    (isi_cap->id == 1))
 		return -EINVAL;
+#endif
 
 	if (fse.min_width == fse.max_width &&
 	    fse.min_height == fse.max_height) {
@@ -1311,7 +1332,9 @@ static int mxc_isi_cap_enum_frameintervals(struct file *file, void *fh,
 					   struct v4l2_frmivalenum *interval)
 {
 	struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
+#ifndef CONFIG_VIDEO_ECAM
 	struct device_node *parent;
+#endif
 	struct v4l2_subdev *sd;
 	struct mxc_isi_fmt *fmt;
 	struct v4l2_subdev_frame_interval_enum fie = {
@@ -1335,11 +1358,12 @@ static int mxc_isi_cap_enum_frameintervals(struct file *file, void *fh,
 	if (ret)
 		return ret;
 
+#ifndef CONFIG_VIDEO_ECAM
 	parent = of_get_parent(isi_cap->pdev->dev.of_node);
 	if (of_device_is_compatible(parent, "fsl,imx8mp-isi") &&
 	    fie.width > ISI_2K && isi_cap->id == 1)
 		return -EINVAL;
-
+#endif
 	interval->type = V4L2_FRMIVAL_TYPE_DISCRETE;
 	interval->discrete = fie.interval;
 
@@ -1348,127 +1372,126 @@ static int mxc_isi_cap_enum_frameintervals(struct file *file, void *fh,
 
 #ifdef CONFIG_VIDEO_ECAM
 static int mxc_vidioc_queryctrl(struct file *file, void *fh,
-					struct v4l2_queryctrl *a)
+                                       struct v4l2_queryctrl *a)
 {
-	struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
-	struct v4l2_subdev *sd;
+       struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
+       struct v4l2_subdev *sd;
 
-	sd = mxc_get_remote_subdev(&isi_cap->sd, __func__);
-	if (!sd)
-		return -EINVAL;
+       sd = mxc_get_remote_subdev(&isi_cap->sd, __func__);
+       if (!sd)
+               return -EINVAL;
 
-	return v4l2_subdev_call(sd, core, queryctrl, a);
+       return v4l2_subdev_call(sd, core, queryctrl, a);
 }
 
 static int mxc_vidioc_query_ext_ctrl(struct file *file, void *fh,
-					struct v4l2_query_ext_ctrl *qec)
+                                       struct v4l2_query_ext_ctrl *qec)
 {
-	struct v4l2_queryctrl qc = {
-		.id = qec->id
-	};
-	int ret;
+       struct v4l2_queryctrl qc = {
+               .id = qec->id
+       };
+       int ret;
 
-	ret = mxc_vidioc_queryctrl(file, fh, &qc);
+       ret = mxc_vidioc_queryctrl(file, fh, &qc);
 
-	if (ret)
-		return ret;
+       if (ret)
+               return ret;
 
-	qec->id = qc.id;
-	qec->type = qc.type;
-	strlcpy(qec->name, qc.name, sizeof(qec->name));
-	qec->maximum = qc.maximum;
-	qec->minimum = qc.minimum;
-	qec->step = qc.step;
-	qec->default_value = qc.default_value;
-	qec->flags = qc.flags;
-	qec->elem_size = 4;
-	qec->elems = 1;
-	qec->nr_of_dims = 0;
-	memset(qec->dims, 0, sizeof(qec->dims));
-	memset(qec->reserved, 0, sizeof(qec->reserved));
+       qec->id = qc.id;
+       qec->type = qc.type;
+       strlcpy(qec->name, qc.name, sizeof(qec->name));
+       qec->maximum = qc.maximum;
+       qec->minimum = qc.minimum;
+       qec->step = qc.step;
+       qec->default_value = qc.default_value;
+       qec->flags = qc.flags;
+       qec->elem_size = 4;
+       qec->elems = 1;
+       qec->nr_of_dims = 0;
+       memset(qec->dims, 0, sizeof(qec->dims));
+       memset(qec->reserved, 0, sizeof(qec->reserved));
 
-	return 0;
+       return 0;
 }
 
 static int mxc_isi_vidioc_querymenu(struct file *file, void *fh,
-					struct v4l2_querymenu *qm)
+                                       struct v4l2_querymenu *qm)
 {
-	struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
-	struct v4l2_subdev *sd;
+       struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
+       struct v4l2_subdev *sd;
 
-	sd = mxc_get_remote_subdev(&isi_cap->sd, __func__);
-	if (!sd)
-		return -EINVAL;
+       sd = mxc_get_remote_subdev(&isi_cap->sd, __func__);
+       if (!sd)
+               return -EINVAL;
 
-	return v4l2_subdev_call(sd, core, querymenu, qm);
+       return v4l2_subdev_call(sd, core, querymenu, qm);
 }
 
 static int mxc_isi_vidioc_g_ctrl(struct file *file, void *fh,
-					struct v4l2_control *a)
+                                       struct v4l2_control *a)
 {
-	struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
-	struct v4l2_subdev *sd;
+       struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
+       struct v4l2_subdev *sd;
 
-	sd = mxc_get_remote_subdev(&isi_cap->sd, __func__);
-	if (!sd)
-		return -EINVAL;
+       sd = mxc_get_remote_subdev(&isi_cap->sd, __func__);
+       if (!sd)
+               return -EINVAL;
 
-	return v4l2_subdev_call(sd, core, g_ctrl, a);
+       return v4l2_subdev_call(sd, core, g_ctrl, a);
 }
 
 static int mxc_isi_vidioc_s_ctrl(struct file *file, void *fh,
-					struct v4l2_control *a)
+                                       struct v4l2_control *a)
 {
-	struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
-	struct v4l2_subdev *sd;
+       struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
+       struct v4l2_subdev *sd;
 
-	sd = mxc_get_remote_subdev(&isi_cap->sd, __func__);
-	if (!sd)
-		return -EINVAL;
+       sd = mxc_get_remote_subdev(&isi_cap->sd, __func__);
+       if (!sd)
+               return -EINVAL;
 
-	return v4l2_subdev_call(sd, core, s_ctrl, a);
+       return v4l2_subdev_call(sd, core, s_ctrl, a);
 }
 
 static int mxc_isi_vidioc_g_ext_ctrls(struct file *file, void *fh,
-				  struct v4l2_ext_controls *a)
+                                 struct v4l2_ext_controls *a)
 {
-	struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
-	struct v4l2_subdev *sd;
+       struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
+       struct v4l2_subdev *sd;
 
-	sd = mxc_get_remote_subdev(&isi_cap->sd, __func__);
-	if (!sd)
-		return -EINVAL;
+       sd = mxc_get_remote_subdev(&isi_cap->sd, __func__);
+       if (!sd)
+               return -EINVAL;
 
-	return v4l2_subdev_call(sd, core, g_ext_ctrls, a);
+       return v4l2_subdev_call(sd, core, g_ext_ctrls, a);
 }
 
 static int mxc_isi_vidioc_try_ext_ctrls(struct file *file, void *fh,
-				  struct v4l2_ext_controls *a)
+                                 struct v4l2_ext_controls *a)
 {
-	struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
-	struct v4l2_subdev *sd;
+       struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
+       struct v4l2_subdev *sd;
 
-	sd = mxc_get_remote_subdev(&isi_cap->sd, __func__);
-	if (!sd)
-		return -EINVAL;
+       sd = mxc_get_remote_subdev(&isi_cap->sd, __func__);
+       if (!sd)
+               return -EINVAL;
 
-	return v4l2_subdev_call(sd, core, try_ext_ctrls, a);
+       return v4l2_subdev_call(sd, core, try_ext_ctrls, a);
 }
 
 static int mxc_isi_vidioc_s_ext_ctrls(struct file *file, void *fh,
-				  struct v4l2_ext_controls *a)
+                                 struct v4l2_ext_controls *a)
 {
-	struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
-	struct v4l2_subdev *sd;
+       struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
+       struct v4l2_subdev *sd;
 
-	sd = mxc_get_remote_subdev(&isi_cap->sd, __func__);
-	if (!sd)
-		return -EINVAL;
+       sd = mxc_get_remote_subdev(&isi_cap->sd, __func__);
+       if (!sd)
+               return -EINVAL;
 
-	return v4l2_subdev_call(sd, core, s_ext_ctrls, a);
+       return v4l2_subdev_call(sd, core, s_ext_ctrls, a);
 }
 #endif
-
 
 static const struct v4l2_ioctl_ops mxc_isi_capture_ioctl_ops = {
 	.vidioc_querycap		= mxc_isi_cap_querycap,
@@ -1498,18 +1521,22 @@ static const struct v4l2_ioctl_ops mxc_isi_capture_ioctl_ops = {
 	.vidioc_enum_framesizes = mxc_isi_cap_enum_framesizes,
 	.vidioc_enum_frameintervals = mxc_isi_cap_enum_frameintervals,
 
-#ifdef CONFIG_VIDEO_ECAM
-	.vidioc_queryctrl	= mxc_vidioc_queryctrl,
-	.vidioc_query_ext_ctrl	= mxc_vidioc_query_ext_ctrl,
-	.vidioc_querymenu	= mxc_isi_vidioc_querymenu,
-	.vidioc_g_ctrl		= mxc_isi_vidioc_g_ctrl,
-	.vidioc_s_ctrl		= mxc_isi_vidioc_s_ctrl,
-	.vidioc_g_ext_ctrls	= mxc_isi_vidioc_g_ext_ctrls,
-	.vidioc_s_ext_ctrls	= mxc_isi_vidioc_s_ext_ctrls,
-	.vidioc_try_ext_ctrls	= mxc_isi_vidioc_try_ext_ctrls
+#ifndef CONFIG_VIDEO_ECAM
+	.vidioc_subscribe_event   =  v4l2_ctrl_subscribe_event,
+	.vidioc_unsubscribe_event =  v4l2_event_unsubscribe,
 #endif
-//	.vidioc_subscribe_event   =  v4l2_ctrl_subscribe_event,
-//	.vidioc_unsubscribe_event =  v4l2_event_unsubscribe,
+
+#ifdef CONFIG_VIDEO_ECAM
+       .vidioc_queryctrl       = mxc_vidioc_queryctrl,
+       .vidioc_query_ext_ctrl  = mxc_vidioc_query_ext_ctrl,
+       .vidioc_querymenu       = mxc_isi_vidioc_querymenu,
+       .vidioc_g_ctrl          = mxc_isi_vidioc_g_ctrl,
+       .vidioc_s_ctrl          = mxc_isi_vidioc_s_ctrl,
+       .vidioc_g_ext_ctrls     = mxc_isi_vidioc_g_ext_ctrls,
+       .vidioc_s_ext_ctrls     = mxc_isi_vidioc_s_ext_ctrls,
+       .vidioc_try_ext_ctrls   = mxc_isi_vidioc_try_ext_ctrls
+#endif
+
 };
 
 /* Capture subdev media entity operations */
@@ -1829,7 +1856,7 @@ static int mxc_isi_register_cap_device(struct mxc_isi_cap_dev *isi_cap,
 	if (ret)
 		goto err_me_cleanup;
 #endif
-
+	
 	ret = video_register_device(vdev, VFL_TYPE_VIDEO, -1);
 	if (ret)
 		goto err_ctrl_free;
@@ -1884,7 +1911,7 @@ static void mxc_isi_subdev_unregistered(struct v4l2_subdev *sd)
 	if (video_is_registered(vdev)) {
 		video_unregister_device(vdev);
 /* To enable ctrls in sensor driver, we need to comment the ISI ctrls*/
-#ifndef CONFIG_VIDEO_ECAM		
+#ifndef CONFIG_VIDEO_ECAM
 		mxc_isi_ctrls_delete(isi_cap);
 #endif
 		media_entity_cleanup(&vdev->entity);

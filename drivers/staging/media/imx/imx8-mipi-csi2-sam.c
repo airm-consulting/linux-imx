@@ -519,6 +519,10 @@ static const struct csis_pix_format mipi_csis_formats[] = {
 		.code = MEDIA_BUS_FMT_SRGGB12_1X12,
 		.fmt_reg = MIPI_CSIS_ISPCFG_FMT_RAW12,
 		.data_alignment = 16,
+	}, {
+		.code = MEDIA_BUS_FMT_Y8_1X8,
+		.fmt_reg = MIPI_CSIS_ISPCFG_FMT_RAW8,
+		.data_alignment = 8,
 	},
 };
 
@@ -967,6 +971,7 @@ static void disp_mix_gasket_config(struct csi_state *state)
 		fmt_val = GASKET_0_CTRL_DATA_TYPE_YUV422_8;
 		break;
 	case MEDIA_BUS_FMT_SBGGR8_1X8:
+	case MEDIA_BUS_FMT_Y8_1X8:
 		fmt_val = GASKET_0_CTRL_DATA_TYPE_RAW8;
 		break;
 	case MEDIA_BUS_FMT_SGBRG8_1X8:
@@ -1171,6 +1176,8 @@ static int mipi_csis_set_fmt(struct v4l2_subdev *mipi_sd,
 	if (!csis_fmt) {
 		csis_fmt = &mipi_csis_formats[0];
 		mf->code = csis_fmt->code;
+	} else {
+		state->csis_fmt = csis_fmt;
 	}
 
 	state->csis_fmt = csis_fmt;
@@ -1186,6 +1193,7 @@ static int mipi_csis_get_fmt(struct v4l2_subdev *mipi_sd,
 	struct v4l2_mbus_framefmt *mf = &state->format;
 	struct media_pad *source_pad;
 	struct v4l2_subdev *sen_sd;
+	struct csis_pix_format const *csis_fmt;
 	int ret;
 
 	/* Get remote source pad */
@@ -1210,6 +1218,14 @@ static int mipi_csis_get_fmt(struct v4l2_subdev *mipi_sd,
 	}
 
 	memcpy(mf, &format->format, sizeof(struct v4l2_mbus_framefmt));
+	
+	csis_fmt = find_csis_format(mf->code);
+	if (!csis_fmt) {
+		csis_fmt = &mipi_csis_formats[0];
+		mf->code = csis_fmt->code;
+	}
+	state->csis_fmt = csis_fmt;
+	
 	return 0;
 }
 
@@ -1295,8 +1311,8 @@ static int mipi_csis_enum_frameintervals(struct v4l2_subdev *mipi_sd,
 	return v4l2_subdev_call(sen_sd, pad, enum_frame_interval, NULL, fie);
 }
 
+ 
 #ifdef CONFIG_VIDEO_ECAM
-
 static int mipi_csis_s_parm(struct v4l2_subdev *mipi_sd, struct v4l2_streamparm *a)
 {
         struct csi_state *state = mipi_sd_to_csi_state(mipi_sd);
@@ -1339,7 +1355,7 @@ static int mipi_csis_queryctrl(struct v4l2_subdev *mipi_sd, struct v4l2_queryctr
                 return -EINVAL;
         }
 
-	return v4l2_subdev_call(sen_sd, core, queryctrl, qc);
+       return v4l2_subdev_call(sen_sd, core, queryctrl, qc);
 }
 
 static int mipi_csis_g_ctrl(struct v4l2_subdev *mipi_sd, struct v4l2_control *ctrl)
@@ -1354,7 +1370,7 @@ static int mipi_csis_g_ctrl(struct v4l2_subdev *mipi_sd, struct v4l2_control *ct
                 return -EINVAL;
         }
 
-	return v4l2_subdev_call(sen_sd, core, g_ctrl, ctrl);
+       return v4l2_subdev_call(sen_sd, core, g_ctrl, ctrl);
 }
 
 static int mipi_csis_s_ctrl(struct v4l2_subdev *mipi_sd, struct v4l2_control *ctrl)
@@ -1369,7 +1385,7 @@ static int mipi_csis_s_ctrl(struct v4l2_subdev *mipi_sd, struct v4l2_control *ct
                 return -EINVAL;
         }
 
-	return v4l2_subdev_call(sen_sd, core, s_ctrl, ctrl);
+       return v4l2_subdev_call(sen_sd, core, s_ctrl, ctrl);
 }
 
 static int mipi_csis_g_ext_ctrls(struct v4l2_subdev *mipi_sd, struct v4l2_ext_controls *ctrls)
@@ -1384,7 +1400,7 @@ static int mipi_csis_g_ext_ctrls(struct v4l2_subdev *mipi_sd, struct v4l2_ext_co
                 return -EINVAL;
         }
 
-	return v4l2_subdev_call(sen_sd, core, g_ext_ctrls, ctrls);
+       return v4l2_subdev_call(sen_sd, core, g_ext_ctrls, ctrls);
 }
 
 static int mipi_csis_s_ext_ctrls(struct v4l2_subdev *mipi_sd, struct v4l2_ext_controls *ctrls)
@@ -1399,7 +1415,7 @@ static int mipi_csis_s_ext_ctrls(struct v4l2_subdev *mipi_sd, struct v4l2_ext_co
                 return -EINVAL;
         }
 
-	return v4l2_subdev_call(sen_sd, core, s_ext_ctrls, ctrls);
+       return v4l2_subdev_call(sen_sd, core, s_ext_ctrls, ctrls);
 }
 
 static int mipi_csis_try_ext_ctrls(struct v4l2_subdev *mipi_sd, struct v4l2_ext_controls *ctrls)
@@ -1414,7 +1430,7 @@ static int mipi_csis_try_ext_ctrls(struct v4l2_subdev *mipi_sd, struct v4l2_ext_
                 return -EINVAL;
         }
 
-	return v4l2_subdev_call(sen_sd, core, try_ext_ctrls, ctrls);
+       return v4l2_subdev_call(sen_sd, core, try_ext_ctrls, ctrls);
 }
 
 static int mipi_csis_querymenu(struct v4l2_subdev *mipi_sd, struct v4l2_querymenu *qm)
@@ -1429,7 +1445,7 @@ static int mipi_csis_querymenu(struct v4l2_subdev *mipi_sd, struct v4l2_querymen
                 return -EINVAL;
         }
 
-	return v4l2_subdev_call(sen_sd, core, querymenu, qm);
+       return v4l2_subdev_call(sen_sd, core, querymenu, qm);
 }
 #endif
 
@@ -1490,6 +1506,9 @@ static int csis_s_fmt(struct v4l2_subdev *sd, struct csi_sam_format *fmt)
 	case V4L2_PIX_FMT_SRGGB12:
 	    code = MEDIA_BUS_FMT_SRGGB12_1X12;
 	    break;
+	case V4L2_PIX_FMT_MJPEG:
+		code = MEDIA_BUS_FMT_Y8_1X8;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -1594,13 +1613,14 @@ static struct v4l2_subdev_core_ops mipi_csis_core_ops = {
 	.ioctl = csis_priv_ioctl,
 #ifdef CONFIG_VIDEO_ECAM
 	.queryctrl = mipi_csis_queryctrl,
-	.g_ctrl = mipi_csis_g_ctrl,
-	.s_ctrl = mipi_csis_s_ctrl,
-	.g_ext_ctrls = mipi_csis_g_ext_ctrls,
-	.s_ext_ctrls = mipi_csis_s_ext_ctrls,
-	.try_ext_ctrls = mipi_csis_try_ext_ctrls,
-	.querymenu = mipi_csis_querymenu,
-#endif	
+       	.g_ctrl = mipi_csis_g_ctrl,
+       	.s_ctrl = mipi_csis_s_ctrl,
+       	.g_ext_ctrls = mipi_csis_g_ext_ctrls,
+       	.s_ext_ctrls = mipi_csis_s_ext_ctrls,
+       	.try_ext_ctrls = mipi_csis_try_ext_ctrls,
+       	.querymenu = mipi_csis_querymenu,
+#endif
+
 };
 
 static struct v4l2_subdev_video_ops mipi_csis_video_ops = {
