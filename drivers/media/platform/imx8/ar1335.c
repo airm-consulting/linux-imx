@@ -27,9 +27,9 @@
 #include "ar1335.h"
 #include "mcu_firmware_1335_ff.h"
 
-///*
+/*
 #define AR1335_DEBUG 1
-//*/
+*/
 /*!
  * Maintains the information on the current state of the sensor.
  */
@@ -1383,6 +1383,7 @@ static int mcu_count_or_list_fmts(struct i2c_client *client, ISP_STREAM_INFO *st
 				ar1335_data.mcu_cam_frmfmt[mode].mode = mode;
 				ar1335_data.streamdb[index] = mode;
 				ar1335_data.mcu_cam_frmfmt[mode].format_fourcc = stream_info->fmt_fourcc;
+				ar1335_data.mcu_cam_frmfmt[mode].code = MEDIA_BUS_FMT_UYVY8_2X8;
 				mode++;
 				break;
 			 case V4L2_PIX_FMT_MJPEG:
@@ -1402,9 +1403,32 @@ static int mcu_count_or_list_fmts(struct i2c_client *client, ISP_STREAM_INFO *st
                                 ar1335_data.mcu_cam_frmfmt[mode].mode = mode;
                                 ar1335_data.streamdb[index] = mode;
                                 ar1335_data.mcu_cam_frmfmt[mode].format_fourcc = stream_info->fmt_fourcc;
+				ar1335_data.mcu_cam_frmfmt[mode].code = MEDIA_BUS_FMT_Y8_1X8;
                                 mode++;
 				break;
-			 
+
+			 case V4L2_PIX_FMT_SGRBG10:
+                                /* Add Width, Height, Frame Rate array, Mode into mcu_ar1335_frmfmt array */
+                                ar1335_data.mcu_cam_frmfmt[mode].size.width = stream_info->width;
+                                ar1335_data.mcu_cam_frmfmt[mode].size.height = stream_info->height;
+
+                                num_frates = ar1335_data.mcu_cam_frmfmt[mode].num_framerates;
+
+                                *(ar1335_data.mcu_cam_frmfmt[mode].framerates + num_frates) =
+                                    (int)(stream_info->frame_rate.disc.frame_rate_num /
+                                          stream_info->frame_rate.disc.frame_rate_denom);
+
+                                ar1335_data.mcu_cam_frmfmt[mode].num_framerates++;
+
+                                ar1335_data.mcu_cam_frmfmt[mode].mode = mode;
+                                ar1335_data.mcu_cam_frmfmt[mode].mode = mode;
+                                ar1335_data.streamdb[index] = mode;
+                                ar1335_data.mcu_cam_frmfmt[mode].format_fourcc = stream_info->fmt_fourcc;
+				ar1335_data.mcu_cam_frmfmt[mode].code = MEDIA_BUS_FMT_SGRBG10_1X10;
+                                mode++;
+				break;
+		 	 
+
 			 default:
 				dev_err(&client->dev,
 					" The Stream format at index 0x%04x has format 0x%08x ,"
@@ -2136,6 +2160,10 @@ static int mcu_set_ctrl(struct i2c_client *client, uint32_t arg_ctrl_id,
 	uint8_t retcode = 0, cmd_id = 0;
 	int loop = 0, ret = 0, err = 0;
 	uint32_t ctrl_id = 0;
+	
+	// Returning these two controls without configuring them, as they are read-only.
+	if((arg_ctrl_id == V4L2_CID_CUR_EXPOSURE_TIME) || (arg_ctrl_id == V4L2_CID_CUR_GAIN_VALUE) || (arg_ctrl_id == V4L2_CID_CUR_WB))
+		return 0;
 
 	/* lock semaphore */
 	mutex_lock(&mcu_i2c_mutex_1335_ff);
@@ -2761,6 +2789,11 @@ static int ar1335_enum_frameintervals(struct v4l2_subdev *sd,struct v4l2_subdev_
 		case MEDIA_BUS_FMT_UYVY8_2X8:
 			format_fourcc = V4L2_PIX_FMT_UYVY;
 			break;
+
+		case MEDIA_BUS_FMT_SGRBG10_1X10:
+			format_fourcc = V4L2_PIX_FMT_SGRBG10;
+			break;
+
 		default:
 			printk("Please use valid mbus code.\n");
 			return -EINVAL;
@@ -2769,7 +2802,8 @@ static int ar1335_enum_frameintervals(struct v4l2_subdev *sd,struct v4l2_subdev_
 	for (j = 0; j < ar1335_data.num_frm_fmts; j++) {
 		if (
 			fival->width == ar1335_data.mcu_cam_frmfmt[j].size.width &&
-			fival->height == ar1335_data.mcu_cam_frmfmt[j].size.height
+			fival->height == ar1335_data.mcu_cam_frmfmt[j].size.height &&
+			fival->code == ar1335_data.mcu_cam_frmfmt[j].code
 		) {
 			if (fival->index >= ar1335_data.mcu_cam_frmfmt[j].num_framerates)
 			{
@@ -2801,6 +2835,14 @@ static int ar1335_enum_framesizes(struct v4l2_subdev *sd,struct v4l2_subdev_stat
 			}
 			fse->index = fse->index + 6;
 			break;
+
+		case MEDIA_BUS_FMT_SGRBG10_1X10:
+			if(fse->index >= 1) {
+				return -EINVAL;
+			}
+			fse->index = fse->index + 9;
+			break;
+
 		default:
 			printk("Invalid mbus code\n");
 			return -EINVAL;
@@ -2826,8 +2868,10 @@ static int ar1335_enum_mbus_code(struct v4l2_subdev *sd,struct v4l2_subdev_state
 	} else if (code->index == 1){
                 code->code = MEDIA_BUS_FMT_Y8_1X8;
 		 ar1335_data.fmt.colorspace = V4L2_COLORSPACE_JPEG;
-	} 
-	else {
+	} else if (code->index == 2){
+		code->code = MEDIA_BUS_FMT_SGRBG10_1X10;
+		ar1335_data.fmt.colorspace = V4L2_COLORSPACE_SRGB;
+	} else {
 		code->code = MEDIA_BUS_FMT_UYVY8_2X8;
 		ar1335_data.fmt.colorspace = V4L2_COLORSPACE_SRGB;
 	}
@@ -3012,6 +3056,13 @@ static int ar1335_set_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_state *stat
 			ar1335_data.fmt.code = MEDIA_BUS_FMT_Y8_1X8;
 			ar1335_data.fmt.colorspace = V4L2_COLORSPACE_JPEG;
 			break;
+
+		case  MEDIA_BUS_FMT_SGRBG10_1X10:
+			ar1335_data.pix.pixelformat = V4L2_PIX_FMT_SGRBG10;
+			ar1335_data.fmt.code = MEDIA_BUS_FMT_SGRBG10_1X10;
+			ar1335_data.fmt.colorspace = V4L2_COLORSPACE_SRGB;
+			break;
+
 		default:
 			/* Not Implemented */
 			dev_err(&client->dev, "Unsupported format\n");
@@ -3434,8 +3485,6 @@ static int ar1335_probe(struct i2c_client *client,
 	int ret, frm_fmt_size = 0, i, err = 0;
 	uint16_t sensor_id = 0;
 
-	dev_info(dev, "%s: Enter", __FUNCTION__);
-
 	if (!IS_ENABLED(CONFIG_OF) || !node)
 		return -EINVAL;
 
@@ -3732,6 +3781,6 @@ module_i2c_driver(ar1335_i2c_driver);
 MODULE_DESCRIPTION("AR1335 FF V4L2 driver");
 MODULE_AUTHOR("e-con Systems");
 MODULE_LICENSE("GPL v2");
-MODULE_VERSION("1.0");
-MODULE_INFO(Camera_Firmware_Version, "11CU137AXXXXX04110fcc2702XXXXXXX");
+MODULE_VERSION("2.0");
+MODULE_INFO(Camera_Firmware_Version, "11CU137AXXXXX04110a2db1a6XXXXXXX");
 MODULE_ALIAS("CSI");

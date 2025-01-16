@@ -31,7 +31,7 @@
 #define AR1335_DEFAULT_WIDTH    640
 #define AR1335_DEFAULT_HEIGHT	480
 
-#define AR1335_MAX_FORMAT_SUPPORTED	2
+#define AR1335_MAX_FORMAT_SUPPORTED	3
 
 #define AR1335_DEFAULT_FPS	100
 
@@ -39,6 +39,9 @@
 #define AR1335_DEFAULT_DATAFMT_YUYV  MEDIA_BUS_FMT_YUYV8_2X8
 #define AR1335_DEFAULT_COLORSPACE V4L2_COLORSPACE_SRGB
 
+#define V4L2_CID_CUR_EXPOSURE_TIME	(V4L2_CID_BASE+22)
+#define V4L2_CID_CUR_GAIN_VALUE		(V4L2_CID_BASE+23)
+#define V4L2_CID_CUR_WB			(V4L2_CID_BASE+24)
 
 ////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -244,6 +247,7 @@ struct ar1335_ff {
 		int num_framerates;
 		int mode;
 		unsigned int format_fourcc;
+		u32 code;
 	} *mcu_cam_frmfmt;
 
 	int *streamdb;
