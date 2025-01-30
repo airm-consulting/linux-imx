@@ -93,11 +93,11 @@
       #gpio-cells = <2>;
       reg = <0x41>;
       standard-regs-fallback;
-      gpio-line-names =
-      "GPIO6_IO00",
-      "GPIO6_IO01",
-      "GPIO6_IO02",
-      "GPIO6_IO03";
+		gpio-line-names =
+		"GPIO6_IO00",
+		"GPIO6_IO01",
+		"GPIO6_IO02",
+		"GPIO6_IO03";
       status = "okay";
 	};
 
@@ -174,7 +174,7 @@
 	pca9538_71_0: pca9538@71 {
       /* For onsemi GPIO expander */
       compatible = "nxp,pca9538";
-	   #gpio-cells = <2>;
+      #gpio-cells = <2>;
       reg = <0x71>;
       status = "okay";
    	};
