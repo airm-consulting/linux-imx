@@ -339,6 +339,12 @@ void mxc_isi_channel_set_csc(struct mxc_isi_dev *mxc_isi,
 
 	mxc_isi->cscen = 1;
 
+	if(dst_fmt->fourcc == V4L2_PIX_FMT_SGRBG10) {
+		mxc_isi->cscen = 0;
+		val |= CHNL_IMG_CTRL_CSC_BYPASS_ENABLE;
+		goto bypass_csc;
+	}
+
 	if (is_yuv(src_fmt->fourcc) && is_rgb(dst_fmt->fourcc)) {
 		/* YUV2RGB */
 		csc = YUV2RGB;
@@ -356,6 +362,7 @@ void mxc_isi_channel_set_csc(struct mxc_isi_dev *mxc_isi,
 		val |= CHNL_IMG_CTRL_CSC_BYPASS_ENABLE;
 	}
 
+bypass_csc:
 	printk_pixelformat("input fmt", src_fmt->fourcc);
 	printk_pixelformat("output fmt", dst_fmt->fourcc);
 
@@ -653,6 +660,10 @@ void mxc_isi_channel_config(struct mxc_isi_dev *mxc_isi,
 	/*  Bypass channel */
 	if (!mxc_isi->cscen && !mxc_isi->scale)
 		val |= (CHNL_CTRL_CHNL_BYPASS_ENABLE << CHNL_CTRL_CHNL_BYPASS_OFFSET);
+
+	if (mxc_isi->isi_cap->pix.pixelformat == V4L2_PIX_FMT_SGRBG10) {
+		val |= (CHNL_CTRL_CHNL_BYPASS_ENABLE << CHNL_CTRL_CHNL_BYPASS_OFFSET);
+	}
 
 	writel(val, mxc_isi->regs + CHNL_CTRL);
 }

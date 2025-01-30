@@ -30,6 +30,26 @@
 		off-on-delay-us = <12000>;
 	};
 
+	reg_mipi0_vmmc: regulator-mipi0-vmmc {
+		compatible = "regulator-fixed";
+		regulator-name = "VMIPI0_3V3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&gpio1 13 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		startup-delay-us = <500000>;
+	};
+
+	reg_mipi1_vmmc: regulator-mipi1-vmmc {
+		compatible = "regulator-fixed";
+		regulator-name = "VMIPI1_3V3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&gpio1 15 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		startup-delay-us = <500000>;
+	};
+
 	can0_osc: can0_osc {
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
@@ -169,7 +189,7 @@
 	pinctrl-1 = <&pinctrl_i2c5_gpio>;
 	scl-gpios = <&gpio3 21 GPIO_ACTIVE_HIGH>;
 	sda-gpios = <&gpio3 25 GPIO_ACTIVE_HIGH>;
-	status = "disabled";
+	status = "okay";
 
 	pca9538_71_0: pca9538@71 {
       /* For onsemi GPIO expander */
@@ -180,7 +200,7 @@
    	};
 
 	ar1335_mipi0: ar1335_mipi@42 {
-		compatible = "ar1335";
+		compatible = "econ,ar1335_ff","ar1335_ff";
 		reg = <0x42>;
 		clocks = <&clk IMX8MP_CLK_IPP_DO_CLKO2>;
 		clock-names = "xclk";
@@ -193,14 +213,13 @@
 #endif
 		assigned-clock-rates = <24000000>;
 		csi_id = <0>;
-		pen-gpios = <&gpio3 13 GPIO_ACTIVE_HIGH>;
 		pwn-gpios = <&pca9538_71_0 6 GPIO_ACTIVE_HIGH>;
 		rst-gpios = <&pca9538_71_0 0 GPIO_ACTIVE_LOW>;
 		mclk = <24000000>;
 		mclk_source = <0>;
 		mipi_csi;
 		camera_mipi_lanes = <2>;
-		status = "disabled";
+		status = "okay";
 
 		port {
 			ar1335_mipi_0_ep: endpoint {
@@ -212,6 +231,12 @@
 	};
 };
 
+&i2c5 {
+	pca9538_71_0: pca9538@71 {
+		vcc-supply = <&reg_mipi0_vmmc>;
+	};
+};
+
 &i2c6 {
 	clock-frequency = <400000>;
 	pinctrl-names = "default", "gpio";
@@ -219,7 +244,7 @@
 	pinctrl-1 = <&pinctrl_i2c6_gpio>;
 	scl-gpios = <&gpio3 19 GPIO_ACTIVE_HIGH>;
 	sda-gpios = <&gpio3 20 GPIO_ACTIVE_HIGH>;
-	status = "disabled";
+	status = "okay";
 
 	pca9538_71_1: pca9538@71 {
       /* For onsemi GPIO expander */
@@ -230,7 +255,7 @@
    	};
 
 	ar1335_mipi1: ar1335_mipi@42 {
-		compatible = "ar1335";
+		compatible = "econ,ar1335_ff","ar1335_ff";
 		reg = <0x42>;
 		clocks = <&clk IMX8MP_CLK_IPP_DO_CLKO2>;
 		clock-names = "xclk";
@@ -242,15 +267,14 @@
 		assigned-clock-parents = <&clk IMX8MP_CLK_24M>;
 #endif
 		assigned-clock-rates = <24000000>;
-		csi_id = <0>;
-		pen-gpios = <&gpio3 15 GPIO_ACTIVE_HIGH>;
+		csi_id = <1>;
 		pwn-gpios = <&pca9538_71_1 6 GPIO_ACTIVE_HIGH>;
-      	rst-gpios = <&pca9538_71_1 0 GPIO_ACTIVE_LOW>;
+		rst-gpios = <&pca9538_71_1 0 GPIO_ACTIVE_LOW>;
 		mclk = <24000000>;
 		mclk_source = <0>;
 		mipi_csi;
 		camera_mipi_lanes = <2>;
-		status = "disabled";
+		status = "okay";
 
 		port {
 			ar1335_mipi_1_ep: endpoint {
@@ -259,6 +283,12 @@
 				clock-lanes = <0>;
 			};
 		};
+	};
+};
+
+&i2c6 {
+	pca9538_71_1: pca9538@71 {
+		vcc-supply = <&reg_mipi1_vmmc>;
 	};
 };
 
@@ -373,7 +403,7 @@
 &mipi_csi_0 {
 	#address-cells = <1>;
 	#size-cells = <0>;
-	status = "disabled";
+	status = "okay";
 
 	port@0 {
 		reg = <0>;
@@ -390,7 +420,7 @@
 &mipi_csi_1 {
 	#address-cells = <1>;
 	#size-cells = <0>;
-	status = "disabled";
+	status = "okay";
 
 	port@1 {
 		reg = <1>;
@@ -409,25 +439,21 @@
 };
 
 &isi_0 {
-	status = "disabled";
+	status = "okay";
 
 	cap_device {
 		status = "okay";
 	};
 
 	m2m_device {
-		status = "okay";
+		status = "disabled";
 	};
 };
 
 &isi_1 {
-	status = "disabled";
+	status = "okay";
 
 	cap_device {
-		status = "okay";
-	};
-
-	m2m_device {
 		status = "okay";
 	};
 };
@@ -454,6 +480,14 @@
 
 &sai3 {
 	status = "disabled";
+};
+
+&isi_0 {
+	status = "okay";
+};
+
+&isi_1 {
+	status = "okay";
 };
 
 &iomuxc {

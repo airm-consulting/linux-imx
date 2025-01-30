@@ -175,7 +175,7 @@ static struct media_entity *find_entity_by_name(struct mxc_md *mxc_md,
 
 	media_device_for_each_entity(ent, &mxc_md->media_dev) {
 		if (!strcmp(ent->name, name)) {
-			dev_dbg(&mxc_md->pdev->dev,
+			dev_info(&mxc_md->pdev->dev,
 				"%s entity is found\n", ent->name);
 			return ent;
 		}
@@ -566,7 +566,7 @@ static int subdev_notifier_bound(struct v4l2_async_notifier *notifier,
 	struct mxc_sensor_info *sensor = NULL;
 	int i;
 
-	dev_dbg(&mxc_md->pdev->dev, "%s\n", __func__);
+	dev_info(&mxc_md->pdev->dev, "%s\n", __func__);
 
 	/* Find platform data for this sensor subdev */
 	for (i = 0; i < ARRAY_SIZE(mxc_md->sensor); i++) {
@@ -583,8 +583,8 @@ static int subdev_notifier_bound(struct v4l2_async_notifier *notifier,
 	sensor->sd = sd;
 	mxc_md->valid_num_sensors++;
 
-	v4l2_info(&mxc_md->v4l2_dev, "Registered sensor subdevice: %s (%d)\n",
-		  sd->name, mxc_md->valid_num_sensors);
+	v4l2_info(&mxc_md->v4l2_dev, "Registered sensor subdevice: %s %X (%d)\n",
+		  sd->name, sd, mxc_md->valid_num_sensors);
 
 	return 0;
 }
@@ -594,7 +594,7 @@ static int subdev_notifier_complete(struct v4l2_async_notifier *notifier)
 	struct mxc_md *mxc_md = notifier_to_mxc_md(notifier);
 	int ret;
 
-	dev_dbg(&mxc_md->pdev->dev, "%s\n", __func__);
+	dev_info(&mxc_md->pdev->dev, "%s\n", __func__);
 	mutex_lock(&mxc_md->media_dev.graph_mutex);
 
 	ret = mxc_md_create_links(mxc_md);
@@ -777,6 +777,7 @@ static int register_isi_entity(struct mxc_md *mxc_md,
 	int ret = 0;
 
 	sd = get_subdev_by_node(mxc_isi->node);
+	dev_info(&mxc_md->pdev->dev, "register_isi_entity: sd=%x\n", sd);
 	if (!sd) {
 		ret = of_device_is_available(mxc_isi->node);
 		if (!ret) {
@@ -790,6 +791,7 @@ static int register_isi_entity(struct mxc_md *mxc_md,
 		}
 		return ret;
 	}
+	dev_info(&mxc_md->pdev->dev, "register_isi_entity: sd->name=%s\n", sd->name);
 
 	if (mxc_isi->id >= MXC_ISI_MAX_DEVS)
 		return -EBUSY;
@@ -812,12 +814,14 @@ static int register_mipi_csi2_entity(struct mxc_md *mxc_md,
 	int ret;
 
 	sd = get_subdev_by_node(mipi_csi2->node);
+	dev_info(&mxc_md->pdev->dev, "register_mipi_csi2_entity: sd=%x\n", sd);
 	if (!sd) {
 		dev_info(&mxc_md->pdev->dev,
 			 "deferring %s device registration\n",
 			 mipi_csi2->node->name);
 		return -EPROBE_DEFER;
 	}
+	dev_info(&mxc_md->pdev->dev, "register_mipi_csi2_entity: sd->name=%s\n", sd->name);
 
 	if (mipi_csi2->id >= MXC_MIPI_CSI2_MAX_DEVS)
 		return -EBUSY;
@@ -1059,6 +1063,8 @@ static int mxc_md_probe(struct platform_device *pdev)
 	struct mxc_md *mxc_md;
 	int ret;
 
+	dev_info(dev, "%s IN\n", __func__);
+
 	mxc_md = devm_kzalloc(dev, sizeof(*mxc_md), GFP_KERNEL);
 	if (!mxc_md)
 		return -ENOMEM;
@@ -1080,23 +1086,30 @@ static int mxc_md_probe(struct platform_device *pdev)
 	v4l2_dev->notify = mxc_sensor_notify;
 	strlcpy(v4l2_dev->name, "mx8-img-md", sizeof(v4l2_dev->name));
 
+	dev_info(dev, "%s pre media_device_init\n", __func__);
 	media_device_init(&mxc_md->media_dev);
+	dev_info(dev, "%s post media_device_init. Register %s\n", __func__, v4l2_dev->mdev->driver_name);
 
 	ret = v4l2_device_register(dev, &mxc_md->v4l2_dev);
+	dev_info(dev, "%s post v4l2_device_register\n", __func__);
 	if (ret < 0) {
 		v4l2_err(v4l2_dev, "Failed to register v4l2_device (%d)\n", ret);
 		goto clean_md;
 	}
 
 	v4l2_async_nf_init(&mxc_md->subdev_notifier);
+	dev_info(dev, "%s post async_nf_init\n", __func__);
 	ret = mxc_md_register_platform_entities(mxc_md, dev->of_node);
+	dev_info(dev, "%s post md_register_platform_ents\n", __func__);
 	if (ret < 0)
 		goto clean_v4l2;
 
 	ret = register_sensor_entities(mxc_md);
+	dev_info(dev, "%s post register_sensor_ents\n", __func__);
 	if (ret < 0)
 		goto clean_ents;
 
+	dev_info(dev, "%s num_sensors=%d\n", __func__,mxc_md->num_sensors);
 	if (mxc_md->num_sensors > 0) {
 		mxc_md->subdev_notifier.ops = &sd_async_notifier_ops;
 		mxc_md->valid_num_sensors = 0;

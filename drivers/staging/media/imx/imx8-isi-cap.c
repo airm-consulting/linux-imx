@@ -60,6 +60,13 @@ struct mxc_isi_fmt mxc_isi_src_formats[] = {
                 .depth          = { 8 },
                 .memplanes      = 1,
                 .colplanes      = 1,
+	}, {
+		.name           = "SGRBG10",
+		.fourcc         = V4L2_PIX_FMT_SGRBG10,
+		.depth          = { 16 },
+		.memplanes      = 1,
+		.colplanes      = 1,
+		.align          = 2,
 	}
 };
 
@@ -109,6 +116,9 @@ struct mxc_isi_fmt *mxc_isi_get_src_fmt(struct v4l2_subdev_format *sd_fmt)
 	}
 	else if(sd_fmt->format.code == MEDIA_BUS_FMT_Y8_1X8){
 		index = 2;
+	}
+	else if (sd_fmt->format.code == MEDIA_BUS_FMT_SGRBG10_1X10){
+		index = 3;
 	}
 	else
 		index = 0;
@@ -979,6 +989,9 @@ static int mxc_isi_source_fmt_init(struct mxc_isi_cap_dev *isi_cap)
 	
 	if(dst_f->fmt->mbus_code == MEDIA_BUS_FMT_Y8_1X8) {
 		src_fmt.format.code = MEDIA_BUS_FMT_Y8_1X8;
+	}
+	else if (dst_f->fmt->mbus_code == MEDIA_BUS_FMT_SGRBG10_1X10){
+		src_fmt.format.code = MEDIA_BUS_FMT_SGRBG10_1X10;
 	}
 	else {
 		src_fmt.format.code = MEDIA_BUS_FMT_UYVY8_2X8;

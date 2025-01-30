@@ -750,7 +750,8 @@ static struct mxc_mipi_csi2_pd_ops mxc_csi2_pd_ops = {
 /*
  * V4L2 subdev operations
  */
-#ifdef CONFIG_VIDEO_ECAM
+//#ifdef CONFIG_VIDEO_ECAM
+#if 0
 static int mipi_csi2_querymenu(struct v4l2_subdev *sd, struct v4l2_querymenu *qm)
 {
 	struct mxc_mipi_csi2_dev *csi2dev = sd_to_mxc_mipi_csi2_dev(sd);
@@ -1224,7 +1225,8 @@ static struct v4l2_subdev_pad_ops mipi_csi2_pad_ops = {
 
 static struct v4l2_subdev_core_ops mipi_csi2_core_ops = {
 	.s_power = mipi_csi2_s_power,
-#ifdef CONFIG_VIDEO_ECAM
+#if 0
+//#ifdef CONFIG_VIDEO_ECAM
 	.queryctrl = mipi_csi2_queryctrl,
 	.g_ctrl = mipi_csi2_g_ctrl,
 	.s_ctrl = mipi_csi2_s_ctrl,

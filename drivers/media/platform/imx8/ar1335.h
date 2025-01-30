@@ -30,6 +30,7 @@
 
 #define AR1335_DEFAULT_WIDTH    640
 #define AR1335_DEFAULT_HEIGHT	480
+#define AR1335_NUM_CONTROLS     30
 
 #define AR1335_MAX_FORMAT_SUPPORTED	3
 
@@ -108,6 +109,8 @@ typedef enum _cmd_id {
 	CMD_ID_ISP_PUP = 0x16,
 
 	/* Reserved - 0x17 to 0xFE (except 0x43) */
+	CMD_ID_LANE_CONFIG = 0x17,
+	CMD_ID_MIPI_CLK_CONFIG = 0x18,
 
 	CMD_ID_UNKNOWN = 0xFF,
 
@@ -205,7 +208,7 @@ typedef struct _isp_ctrl_info_std {
 	ISP_CTRL_UI_INFO ctrl_ui_data;
 } ISP_CTRL_INFO;
 
-struct ar1335_ff {
+struct ar1335 {
 	int numctrls;
 //	struct v4l2_ctrl_handler ctrl_handler;
 	struct v4l2_subdev subdev;
@@ -246,25 +249,32 @@ struct ar1335_ff {
 		unsigned int * framerates;
 		int num_framerates;
 		int mode;
+		//uint32_t pixel_format;
 		unsigned int format_fourcc;
 		u32 code;
 	} *mcu_cam_frmfmt;
 
+	ISP_STREAM_INFO *stream_info;
+	ISP_CTRL_INFO *mcu_ctrl_info;
 	int *streamdb;
+	uint16_t prev_index;
 	int power_on;
+
+	uint16_t mipi_lane_config;
+	uint16_t mipi_clk_config;
 
 	struct v4l2_ctrl *ctrls[];
 };
 
-static ISP_STREAM_INFO *stream_info = NULL;
-static ISP_CTRL_INFO *mcu_ctrl_info = NULL;
+//static ISP_STREAM_INFO *stream_info = NULL;
+//static ISP_CTRL_INFO *mcu_ctrl_info = NULL;
 
 /* Total formats */
 static int num_ctrls = 0;
 static uint32_t *ctrldb;
 
 /* Mutex for I2C lock */
-DEFINE_MUTEX(mcu_i2c_mutex_1335_ff);
+DEFINE_MUTEX(mcu_i2c_mutex_1335);
 
 static int ar1335_read(struct i2c_client *client, u8 * val, u32 count);
 static int ar1335_write(struct i2c_client *client, u8 * val, u32 count);
@@ -276,23 +286,22 @@ static int ar1335_s_power(struct v4l2_subdev *sd, int on);
  */
 static int mcu_get_fw_version(struct i2c_client *client, unsigned char * fw_version);
 static int mcu_verify_fw_version(const unsigned char *const fw_version);
-static int mcu_count_or_list_fmts(struct i2c_client *client, ISP_STREAM_INFO *stream_info, int *frm_fmt_size);
+static int mcu_count_or_list_fmts(struct ar1335 *sensor, ISP_STREAM_INFO *stream_info, int *frm_fmt_size);
 static int mcu_count_or_list_ctrls(struct i2c_client *client,
 			  ISP_CTRL_INFO * mcu_ctrl_info, int *numctrls);
 static int mcu_get_sensor_id(struct i2c_client *client, uint16_t * sensor_id);
 static int mcu_get_cmd_status(struct i2c_client *client, uint8_t * cmd_id,
 			      uint16_t * cmd_status, uint8_t * ret_code);
 static int mcu_isp_init(struct i2c_client *client);
-static int mcu_stream_config(struct i2c_client *client, uint32_t format,
+static int mcu_stream_config(struct ar1335 *sensor, uint32_t format,
 			     int mode, int frate_index);
-static int mcu_set_ctrl(struct i2c_client *client, uint32_t ctrl_id,
+static int mcu_set_ctrl(struct ar1335 *sensor, uint32_t ctrl_id,
 			uint8_t ctrl_type, int32_t curr_val);
-static int mcu_get_ctrl(struct i2c_client *client, uint32_t ctrl_id,
+static int mcu_get_ctrl(struct ar1335 *sensor, uint32_t ctrl_id,
 			uint8_t * ctrl_type, int32_t * curr_val);
 static int mcu_get_ctrl_ui(struct i2c_client *client,
 			   ISP_CTRL_INFO * mcu_ui_info, int index);
 static int mcu_fw_update(struct i2c_client *client, unsigned char *txt_fw_version);
-static int mcu_isp_power_down(struct i2c_client *client);
-static int mcu_isp_power_wakeup(struct i2c_client *client);
+static int mcu_isp_lane_configuration(struct i2c_client *client, struct ar1335 *sensor);
 
 #endif				/* __AR1335_TABLES__ */

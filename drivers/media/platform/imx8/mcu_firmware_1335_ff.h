@@ -37,6 +37,15 @@ enum _i2c_resp
         RESP_BUSY = 0x76,
 };
 
+enum
+{
+        NUM_LANES_1 = 0x01,
+        NUM_LANES_2 = 0x02,
+        NUM_LANES_3 = 0x03,
+        NUM_LANES_4 = 0x04,
+        NUM_LANES_UNKWN = 0xFF,
+};
+
 enum _ihex_rectype
 {
         /*   Normal data */
@@ -62,20 +71,20 @@ typedef struct __attribute__ ((packed)) _ihex_rec {
         unsigned char recdata[];
 } IHEX_RECORD;
 
-unsigned int g_bload_flashaddr_1335_ff = 0x0000;
+unsigned int g_bload_flashaddr_1335 = 0x0000;
 
-uint8_t *fw_version_1335_ff = NULL;
+uint8_t *fw_version_1335 = NULL;
 
 /* MCU communication variables */
-unsigned char mc_data_1335_ff[MCU_BUFFER_SIZE];
-unsigned char mc_ret_data_1335_ff[MCU_BUFFER_SIZE];
+unsigned char mc_data_1335[MCU_BUFFER_SIZE];
+unsigned char mc_ret_data_1335[MCU_BUFFER_SIZE];
 
 /*   Buffer to Send Bootloader CMDs */
-unsigned char g_bload_buf_1335_ff[MAX_BUF_LEN] = { 0 };
+unsigned char g_bload_buf_1335[MAX_BUF_LEN] = { 0 };
 
-unsigned short int g_bload_crc16_1335_ff = 0x0000;
+unsigned short int g_bload_crc16_1335 = 0x0000;
 
-const char g_mcu_fw_buf_1335_ff[] =
+const char g_mcu_fw_buf_1335[] =
 #include "ecam130ff_imx8_mcu_fw.txt"
     ;
 
