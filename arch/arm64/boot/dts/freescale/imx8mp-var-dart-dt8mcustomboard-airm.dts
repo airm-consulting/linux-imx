@@ -85,6 +85,14 @@
 			};
 		};
 	};
+
+	pwm5: pwm_gpio@0 {
+		compatible = "pwm-gpio";
+		#pwm-cells = <3>;
+		gpios = <&gpio5 9 GPIO_ACTIVE_HIGH>;
+		status = "okay";
+	};
+
 };
 
 &aud2htx {
@@ -553,6 +561,7 @@
 			MX8MP_IOMUXC_SPDIF_EXT_CLK__GPIO5_IO05				0xA0			// LoRa Busy (input)
 			MX8MP_IOMUXC_SPDIF_TX__GPIO5_IO03					0x84			// Defogger On (ext 10K PD)
 			MX8MP_IOMUXC_SAI5_RXD3__GPIO3_IO24					0x4			// SD_CARD Power enable
+			MX8MP_IOMUXC_ECSPI1_SS0__GPIO5_IO09					0x4			// External LED
 
 		>;
 	};
@@ -611,6 +620,7 @@
 			MX8MP_IOMUXC_SPDIF_EXT_CLK__GPIO5_IO05				0xA0			// LoRa Busy (input)
 			MX8MP_IOMUXC_SPDIF_TX__GPIO5_IO03					0x20			// Defogger On (ext 10K PD)
 			MX8MP_IOMUXC_SAI5_RXD3__GPIO3_IO24					0x4			// SD Card Power Enable
+			MX8MP_IOMUXC_ECSPI1_SS0__GPIO5_IO09					0x24			// External LED
 
 		>;
 	};
@@ -758,7 +768,6 @@
 			MX8MP_IOMUXC_SAI2_TXC__GPIO4_IO25 				0x1c0
 		>;
 	};
-	
 
 };
 
