@@ -42,7 +42,7 @@
 
 #define V4L2_CID_CUR_EXPOSURE_TIME	(V4L2_CID_BASE+22)
 #define V4L2_CID_CUR_GAIN_VALUE		(V4L2_CID_BASE+23)
-#define V4L2_CID_CUR_WB			(V4L2_CID_BASE+24)
+#define V4L2_CID_CUR_WB			(V4L2_CID_BASE+43)
 
 ////////////////////////////////////////////////////////////////////////////////////////////
 
