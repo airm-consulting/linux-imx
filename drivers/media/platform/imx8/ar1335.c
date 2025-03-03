@@ -31,16 +31,14 @@
 #define AR1335_DEBUG 1
 */
 
-static int pwdn_gpio, reset_gpio;
-
 static struct ar1335 *to_ar1335_dev(const struct i2c_client *client)
 {
 	 return container_of(i2c_get_clientdata(client), struct ar1335, subdev);
 }
 
-int gpios_available_1335(void)
+int gpios_available_1335(struct ar1335 *sensor)
 {
-	return (pwdn_gpio >= 0) && (reset_gpio >= 0);
+	return (sensor->pwdn_gpio >= 0) && (sensor->reset_gpio >= 0);
 }
 
 /**********************************************************************
@@ -3048,7 +3046,7 @@ static int ar1335_ctrls_init(ISP_CTRL_INFO *mcu_cam_ctrls, struct ar1335 *sensor
 	return 0;
 }
 
-static int ar1335_verify_mcu(struct i2c_client *client)
+static int ar1335_verify_mcu(struct i2c_client *client, struct ar1335 *sensor)
 {
 	int ret = 0, try = 0;
 	unsigned char fw_version_1335[32] = {0};
@@ -3065,13 +3063,13 @@ static int ar1335_verify_mcu(struct i2c_client *client)
 	 * We do this only when the reset_gpio and pwdn_gpio are
 	 * available.
 	 */
-	if (gpios_available_1335())
+	if (gpios_available_1335(sensor))
 	{
-		toggle_gpio(pwdn_gpio, 0);
+		toggle_gpio(sensor->pwdn_gpio, 0);
 		msleep(10);
-		toggle_gpio(reset_gpio, 0);
+		toggle_gpio(sensor->reset_gpio, 0);
 		msleep(10);
-		toggle_gpio(reset_gpio, 1);
+		toggle_gpio(sensor->reset_gpio, 1);
 		msleep(500);
 
 		for(try = 0; try < 10; try++) {	
@@ -3121,13 +3119,13 @@ static int ar1335_verify_mcu(struct i2c_client *client)
 				*/
 				pr_info(" Trying to Detect Bootloader mode\n");
 
-				if (gpios_available_1335())
+				if (gpios_available_1335(sensor))
 				{
-					toggle_gpio(reset_gpio, 0);
+					toggle_gpio(sensor->reset_gpio, 0);
 					msleep(10);
-					toggle_gpio(pwdn_gpio, 1);
+					toggle_gpio(sensor->pwdn_gpio, 1);
 					msleep(100);
-					toggle_gpio(reset_gpio, 1);
+					toggle_gpio(sensor->reset_gpio, 1);
 					msleep(100);
 				}
 			}
@@ -3155,9 +3153,9 @@ static int ar1335_verify_mcu(struct i2c_client *client)
 				return -EFAULT;
 			}
 
-			if (gpios_available_1335())
+			if (gpios_available_1335(sensor))
 			{
-				toggle_gpio(pwdn_gpio, 0);
+				toggle_gpio(sensor->pwdn_gpio, 0);
 			}
 
 			/* Allow FW Updated MCU to reboot */
@@ -3341,7 +3339,7 @@ static int ar1335_parse_and_get_clocks(struct device *dev, struct ar1335 *sensor
 	return 0;
 }
 
-static int ar1335_parse_and_get_gpios(struct device *dev)
+static int ar1335_parse_and_get_gpios(struct device *dev, struct ar1335 *sensor)
 {
 	int err;
 	struct device_node *node = NULL;
@@ -3354,29 +3352,25 @@ static int ar1335_parse_and_get_gpios(struct device *dev)
 
 	node = dev->of_node;
 
-	pwdn_gpio = of_get_named_gpio(node, "pwn-gpios", 0);
-	if (!gpio_is_valid(pwdn_gpio)) {
+	sensor->pwdn_gpio = of_get_named_gpio(node, "pwn-gpios", 0);
+	if (!gpio_is_valid(sensor->pwdn_gpio)) {
 		dev_err(dev, "no sensor pwdn pin available");
 		return -EINVAL;
 	}
 	else {
-#ifdef AR1335_DEBUG
-		printk("BOOT = %x \n", pwdn_gpio);
-#endif
+		dev_info(dev, "pwdn_gpio = %x \n", sensor->pwdn_gpio);
 	}
 
-	reset_gpio = of_get_named_gpio(node, "rst-gpios", 0);
-	if (!gpio_is_valid(reset_gpio)) {
+	sensor->reset_gpio = of_get_named_gpio(node, "rst-gpios", 0);
+	if (!gpio_is_valid(sensor->reset_gpio)) {
 		dev_err(dev, "no sensor reset pin available");
 		return -EINVAL;
 	}
 	else {
-#ifdef AR1335_DEBUG
-		printk("RESET = %x \n", reset_gpio);
-#endif
+		dev_info(dev, "reset_gpio = %x \n", sensor->reset_gpio);
 	}
 
-	err = devm_gpio_request_one(dev, pwdn_gpio, GPIOF_OUT_INIT_HIGH,
+	err = devm_gpio_request_one(dev, sensor->pwdn_gpio, GPIOF_OUT_INIT_HIGH,
 					"ar1335_mipi_pwdn");
 	if (err < 0) {
 		dev_warn(dev, "Failed to set power pin\n");
@@ -3384,7 +3378,7 @@ static int ar1335_parse_and_get_gpios(struct device *dev)
 		return err;
 	}
 
-	err = devm_gpio_request_one(dev, reset_gpio, GPIOF_OUT_INIT_HIGH,
+	err = devm_gpio_request_one(dev, sensor->reset_gpio, GPIOF_OUT_INIT_HIGH,
 					"ar1335_mipi_reset");
 	if (err < 0) {
 		dev_warn(dev, "Failed to set reset pin\n");
@@ -3429,7 +3423,7 @@ static int ar1335_probe(struct i2c_client *client,
 	if (IS_ERR(pinctrl))
 		dev_warn(dev, "no pin available\n");
 
-	ret = ar1335_parse_and_get_gpios(dev);
+	ret = ar1335_parse_and_get_gpios(dev, ar1335_data);
 	if (ret)
 	{
 		pr_info("Warning: couldn't get GPIOs\n");
@@ -3455,10 +3449,13 @@ static int ar1335_probe(struct i2c_client *client,
 	 * seem to be needed here as the Variscite EVK seems to be supplying
 	 * the required voltage directly without us needing to set it.
 	 */
-	toggle_gpio(reset_gpio, 1);
-	msleep(500);
 
-	ret = ar1335_verify_mcu(client);
+	if (gpios_available_1335(ar1335_data)) {
+		toggle_gpio(ar1335_data->reset_gpio, 1);
+		msleep(500);
+	}
+
+	ret = ar1335_verify_mcu(client, ar1335_data);
 	if (ret)
 	{
 		dev_err(dev, "Error occurred when verifying MCU\n");
@@ -3472,7 +3469,7 @@ static int ar1335_probe(struct i2c_client *client,
 	ar1335_data->mipi_lane_config = mipi_lane;
 	
 	retry = 10;
-        while(retry-- > 0)
+	while(retry-- > 0)
 	{
 		if(mcu_isp_lane_configuration(client, ar1335_data) < 0)
 		{
@@ -3632,7 +3629,10 @@ static int ar1335_probe(struct i2c_client *client,
 static void ar1335_remove(struct i2c_client *client)
 {
 	struct ar1335 *sensor = to_ar1335_dev(client);
+	struct device *dev = &client->dev;
 
+	dev_info(dev, "ar1335_remove: IN pwdn_gpio=%x reset_gpio=%x\n",
+		sensor->pwdn_gpio, sensor->reset_gpio);
 	v4l2_async_unregister_subdev(&sensor->subdev);
 
 	clk_disable_unprepare(sensor->sensor_clk);
@@ -3640,21 +3640,11 @@ static void ar1335_remove(struct i2c_client *client)
 	/*
 	 * Power down the MCU
 	 */
-	if (reset_gpio >= 0)
+	if (sensor->reset_gpio >= 0)
 	{
-		toggle_gpio(reset_gpio, 0);
+		toggle_gpio(sensor->reset_gpio, 0);
 	}
 
-#if 0
-	/*
-	 * Free up the GPIOs
-	 */
-	if (pwdn_gpio >= 0)
-		devm_gpio_free(&client->dev, pwdn_gpio);
-
-	if (reset_gpio >= 0)
-		devm_gpio_free(&client->dev, reset_gpio);
-#endif
 	return;
 }
 

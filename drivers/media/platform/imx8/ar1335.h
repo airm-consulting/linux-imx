@@ -216,6 +216,9 @@ struct ar1335 {
 	uint16_t frate_index;
 	struct media_pad pads[1];
 
+	int pwdn_gpio;
+	int reset_gpio;
+
 	u32 mclk;
 	u8 mclk_source;
 	struct clk *sensor_clk;
