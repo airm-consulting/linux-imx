@@ -134,6 +134,11 @@
 		reg = <0x44>;
 	};
 	
+	sht4x_2: sht4x@45 {
+		compatible = "sensirion,sht4x";
+		reg = <0x45>;
+	};
+	
 	tla2024_1: tla2024@48 {
 		compatible = "ti,tla2024";
 		reg = <0x48>;
