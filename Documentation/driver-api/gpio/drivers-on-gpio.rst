@@ -106,6 +106,10 @@ hardware descriptions such as device tree or ACPI:
   some SoC-external entities, such as different components on a PCB that
   can be selectively enabled.
 
+- bituart: drivers/tty/serial/bituart.c is used for emulating a UART port making
+  making use of GPIO lines. It supports full-duplex, half-duplex, single wire
+  transmit/receive and RS485 RTS signal using a GPIO.
+
 Apart from this there are special GPIO drivers in subsystems like MMC/SD to
 read card detect and write protect GPIO lines, and in the TTY serial subsystem
 to emulate MCTRL (modem control) signals CTS/RTS by using two GPIO lines. The

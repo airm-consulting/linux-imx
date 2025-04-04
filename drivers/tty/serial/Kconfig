@@ -1560,6 +1560,18 @@ config SERIAL_SUNPLUS_CONSOLE
 	  you can alter that using a kernel command line option such as
 	  "console=ttySUPx".
 
+config SERIAL_BITUART
+	tristate "gpio bit banging UART support"
+	depends on GPIOLIB
+	depends on HIGH_RES_TIMERS
+	select SERIAL_CORE
+	help
+	  Select this option to enable a bit banging UART port making use of
+	  GPIO pins and kernel high-resolution timers.
+	  The serial ports will be registered as ttyBITSx.
+	  To compile this driver as a module, choose M here: the module will be
+	  called bituart.
+
 endmenu
 
 config SERIAL_MCTRL_GPIO

@@ -1,0 +1,81 @@
+# SPDX-License-Identifier: GPL-2.0
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/serial/bituart.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Software Emulated UART port using GPIOs
+
+maintainers:
+
+description:
+  The module emulate UART by bit banging on GPIOs
+
+properties:
+  $nodename:
+    pattern: "^bituart(@.*)?$"
+
+  compatible:
+    - const: bit-uart
+
+  rx-gpios:
+    description:
+      Must contain a GPIO specifier, referring to the GPIO pin 
+      to be used as the rx line, if no valid gpio is supplied, 
+      the driver will perform tx only, requiring a valid 
+      tx-gpios supplied, select bituart,single-wire if tx and
+      rx are of the same pin
+    maxItems: 1
+
+  tx-gpios:
+    description:
+      Must contain a GPIO specifier, referring to the GPIO pin 
+      to be used as the tx line, if no valid gpio is supplied,
+      the driver will perform rx only, requiring a valid
+      rx-gpios supplied, select bituart, single-wire if tx and 
+      rx are of the same pin
+    maxItems: 1
+  
+  bituart,inverted-tx:
+    description:
+      Indicate that the tx line signal level is inverted
+
+  bituart,inverted-rx:
+    description:
+      Indicate that the rx line signal level is inverted
+
+  bituart,single-wire:
+    description:
+      Indicate that the port is a single wire tx/rx line,
+      any of the rx-gpios or tx-gpios should be set, or 
+      if both are set, rx-gpios will be used if it is a valid
+      gpio and kernel can request it. Otherwise, the driver will
+      fallback to use tx-gpios. If both tx and rx gpios are not valid,
+      driver will throw an error.
+  
+allOf:
+  - $ref: rs485.yaml#
+  - $ref: serial.yaml#
+
+required:
+  - compatible
+  - oneOf:
+    - required:
+      - tx-gpios
+    - required:
+      - rx-gpios
+    - required:
+      - tx-gpios
+      - rx-gpios
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+
+    bituart {
+        compatible = "bit-uart";
+        tx-gpios = <&gpio 1 GPIO_ACTIVE_HIGH>;
+        rx-gpios = <&gpio 2 GPIO_ACTIVE_HIGH>;
+    };

@@ -93,6 +93,27 @@
 		status = "okay";
 	};
 
+	bituart0: bituart@0 {
+		compatible = "bit-uart";
+		rx-gpios = <&gpio1 14 GPIO_ACTIVE_HIGH>;
+		tx-gpios = <&gpio1 14 GPIO_ACTIVE_HIGH>;
+		rts-gpios = <&gpio4 1 GPIO_ACTIVE_HIGH>;
+		bituart,inverted-tx;
+		bituart,inverted-rx;
+		bituart,single-wire;
+		status = "okay";
+	};
+
+	bituart1: bituart@1 {
+		compatible = "bit-uart";
+		rx-gpios = <&gpio1 12 GPIO_ACTIVE_HIGH>;
+		tx-gpios = <&gpio1 12 GPIO_ACTIVE_HIGH>;
+		rts-gpios = <&gpio4 1 GPIO_ACTIVE_HIGH>;
+		bituart,inverted-tx;
+		bituart,inverted-rx;
+		bituart,single-wire;
+		status = "okay";
+	};
 };
 
 &aud2htx {
