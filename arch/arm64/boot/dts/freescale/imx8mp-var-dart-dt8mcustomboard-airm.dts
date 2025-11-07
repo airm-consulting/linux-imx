@@ -192,6 +192,40 @@
 		reg = <0x28>;
 		reset-gpios = <&gpio1 6 GPIO_ACTIVE_HIGH>;
     };
+	
+	tla2024_2: tla2024@49 {
+		compatible = "ti,tla2024";
+		reg = <0x49>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		channel@0 {
+			reg = <4>;
+			ti,gain = <1>;
+			ti,datarate = <4>;
+		};
+		channel@1 {
+			reg = <5>;
+			ti,gain = <1>;
+			ti,datarate = <4>;
+		};
+		channel@2 {
+			reg = <6>;
+			ti,gain = <1>;
+			ti,datarate = <4>;
+		};
+		channel@3 {
+			reg = <7>;
+			ti,gain = <1>;
+			ti,datarate = <4>;
+		};
+	};
+
+	m24c01_1: eeprom@57 {
+		compatible = "atmel,24c01";
+		reg = <0x57>;
+		pagesize = <16>;
+	};
+
 };
 
 &i2c4 {
