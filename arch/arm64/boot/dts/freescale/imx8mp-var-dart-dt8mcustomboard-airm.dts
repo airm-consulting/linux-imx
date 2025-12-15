@@ -13,6 +13,19 @@
 		stdout-path = &uart1;
 	};
 
+   gpio-keys {
+		compatible = "gpio-keys";
+		status = "okay";
+
+		enter {
+			label = "Enter";
+			linux,code = <KEY_ENTER>;
+			gpios = <&gpio4 26 GPIO_ACTIVE_LOW>;
+			debounce-interval = <110>;
+			wakeup-source;
+		};
+	};
+
 	pcie0_refclk: pcie0-refclk {
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
