@@ -240,6 +240,40 @@
 		pagesize = <16>;
 	};
 
+	tcs344x: tcs344x@59 {
+		compatible = "ams,tcs344x";
+		reg = <0x59>;
+		interrupt-parent = <&gpio3>;
+		interrupts = <14 IRQ_TYPE_EDGE_FALLING>;
+		als_name = "tcs344x-als";
+		als_config = <0>;
+		als_led_reg = <4>;
+		als_atime = <0x07>;
+
+		als_ms_astep = <0x46>;
+		als_ls_astep = <0x41>;
+		/* als_ms_astep = <0x80>;
+		als_ls_astep = <0x19>;*/
+		/*
+		als_ms_astep = <0x46>;
+		als_ls_astep = <0x41>;
+		*/
+        
+		als_wtime = <0>;
+		als_auto_again = <1>;
+		als_again = <8>;
+		als_again_max = <153>;
+		als_persist = <0>;
+		als_azconfig = <0x00>;
+		/*fd_time1 = <0x67>;*/
+		/*fd_time1 = <94>;*/
+		fd_time1 = <0x67>;
+		/*fd_time2 = <0x21>;*/
+		/*fd_time2 = <33>;*/
+		fd_time2 = <0x11>;
+		fd_fifo_map = <0>;
+		sai_enable = <0>;
+	};
 };
 
 &i2c4 {
@@ -625,7 +659,7 @@
 			MX8MP_IOMUXC_GPIO1_IO07__GPIO1_IO07					0x4			// UART3 Mux (ext 100K PD) (0=GNSS, 1=BATT)
 			MX8MP_IOMUXC_GPIO1_IO13__GPIO1_IO13					0x4			// MIPI P1 Pweer Enable (ext 47K PD)
 			MX8MP_IOMUXC_GPIO1_IO15__GPIO1_IO15					0x4			// MIPI P2 Power Enable (ext 47K PD)
-			MX8MP_IOMUXC_NAND_DQS__GPIO3_IO14					0x84			// Expansion GPIO5 (input/output)
+			MX8MP_IOMUXC_NAND_DQS__GPIO3_IO14					0xA0			// TCS3448 Interrupt
 			MX8MP_IOMUXC_NAND_ALE__GPIO3_IO00					0x84			// Expansion GPIO4 (input/output)
 			MX8MP_IOMUXC_NAND_DATA03__GPIO3_IO09				0x84			// Expansion GPIO3 (input/output)
 			MX8MP_IOMUXC_NAND_DATA00__GPIO3_IO06				0x84			// Expansion GPIO2 (input/output)
@@ -684,7 +718,7 @@
 			MX8MP_IOMUXC_GPIO1_IO07__GPIO1_IO07					0x24			// UART3 Mux (ext 100K PD) (0=GNSS, 1=BATT)
 			MX8MP_IOMUXC_GPIO1_IO13__GPIO1_IO13					0x24			// MIPI P1 Pweer Enable (ext 47K PD)
 			MX8MP_IOMUXC_GPIO1_IO15__GPIO1_IO15					0x24			// MIPI P2 Power Enable (ext 47K PD)
-			MX8MP_IOMUXC_NAND_DQS__GPIO3_IO14					0x20			// Expansion GPIO5
+			MX8MP_IOMUXC_NAND_DQS__GPIO3_IO14					0xA0			// Expansion GPIO5
 			MX8MP_IOMUXC_NAND_ALE__GPIO3_IO00					0x20			// Expansion GPIO4
 			MX8MP_IOMUXC_NAND_DATA03__GPIO3_IO09				0x20			// Expansion GPIO3
 			MX8MP_IOMUXC_NAND_DATA00__GPIO3_IO06				0x20			// Expansion GPIO2

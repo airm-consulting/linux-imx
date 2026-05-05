@@ -494,6 +494,17 @@ config TCS3472
 	  This driver can also be built as a module.  If so, the module
 	  will be called tcs3472.
 
+config SENSORS_TCS344x
+	tristate "AMS TCS344x ALS"
+	depends on I2C
+	default n
+	help
+		If you say yes here you get support for the ams tcs344x,
+		ALS light sensors.
+
+		This driver can also be built as a module.  If so, the module
+		will be called tcs344x.
+
 config SENSORS_TSL2563
 	tristate "TAOS TSL2560, TSL2561, TSL2562 and TSL2563 ambient light sensors"
 	depends on I2C
