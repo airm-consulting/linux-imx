@@ -27,7 +27,7 @@
 #ifndef __AMS_TCS344x_CALIB_H
 #define __AMS_TCS344x_CALIB_H
 
-#include <linux/i2c/ams/ams_tcs344x.h>
+#include <linux/iio/ams/ams_tcs344x.h>
 
 /* XYZ Fixed Point Calibration Matrix */
 struct calibration_data tcs344x_default_cal_data = {

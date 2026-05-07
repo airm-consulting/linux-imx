@@ -34,7 +34,7 @@
 #include <linux/slab.h>
 #include <asm/div64.h>
 
-#include <linux/i2c/ams/ams_tcs344x.h>
+#include <linux/iio/ams/ams_tcs344x.h>
 #include "ams_i2c.h"
 #include "qmath.h"
 #include "tcs344x_calib.h"

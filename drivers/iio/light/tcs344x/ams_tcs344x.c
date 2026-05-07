@@ -58,7 +58,7 @@
 #include <linux/io.h>
 #include <linux/irq.h>
 
-#include <linux/i2c/ams/ams_tcs344x.h>
+#include <linux/iio/ams/ams_tcs344x.h>
 #include "ams_i2c.h"
 #include "ams_tcs344x_als.h"
 
