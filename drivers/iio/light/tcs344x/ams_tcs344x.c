@@ -74,6 +74,8 @@
  */
 #define PRINT_RAW_DATA (0)
 
+#define FLICKER_ENABLE (0)
+
 static u8 data[256];
 /*
  * warning: if we change the kfifo size, then
@@ -231,6 +233,7 @@ static u8 const restorable_regs[] = {
 	TCS344x_REGADDR_FD_CFG_1,
 	TCS344x_REGADDR_FD_CFG_3,
 	TCS344x_REGADDR_FIFO_MAP,
+    TCS344x_REGADDR_PCFG_1,
 };
 
 operation_mode get_spectral_mode(void)
@@ -378,13 +381,23 @@ void smux_write_config_data(struct tcs344x_chip *chip, bool init, u8 smux_data[]
     uint8_t row_ctr = 0;
     uint8_t col_ctr = 0;
 
-    
-    /**
-     * Disable AEN and FDEN before writing the config values
-     * Keep PON = 1
-     */
-    ret = ams_i2c_modify(chip->client, chip->shadow, TCS344x_REGADDR_ENABLE, (TCS344x_AEN | TCS344x_FDEN), 0x00);
-    
+    if(chip->params.flicker_enable)   
+    {
+        /**
+        * Disable AEN and FDEN before writing the config values
+        * Keep PON = 1
+        */
+        ret = ams_i2c_modify(chip->client, chip->shadow, TCS344x_REGADDR_ENABLE, (TCS344x_AEN | TCS344x_FDEN), 0x00);
+    }
+    else
+    {
+        /**
+        * Disable AEN before writing the config values
+        * Keep PON = 1
+        */
+        ret = ams_i2c_modify(chip->client, chip->shadow, TCS344x_REGADDR_ENABLE, TCS344x_AEN, 0x00);
+    }
+
     for(row_ctr = 0; row_ctr < SMUX_SIZE; row_ctr++)
     {
         for(col_ctr = 0; col_ctr < ALS_SMUX_CFG_MAX ; col_ctr++)
@@ -402,20 +415,29 @@ void smux_write_config_data(struct tcs344x_chip *chip, bool init, u8 smux_data[]
             mdelay(1);
         }
     }
-    
-    /**
-     * Enable PON, AEN and FDEN before writing the config values
-     * Keep PON = 1
-     */
-    if(chip->is_flicker_smux_configed == false)
+
+    if(chip->params.flicker_enable)
     {
-        ret = ams_i2c_write_direct(chip->client, TCS344x_REGADDR_ENABLE, (/*TCS344x_AEN |*/ TCS344x_FDEN | TCS344x_PON));
+        /**
+        * Enable PON, AEN and FDEN before writing the config values
+        * Keep PON = 1
+        */
+        if(chip->is_flicker_smux_configed == false)
+        {
+            ret = ams_i2c_write_direct(chip->client, TCS344x_REGADDR_ENABLE, (/*TCS344x_AEN |*/ TCS344x_FDEN | TCS344x_PON));
+        }
+        else
+        {
+            ret = ams_i2c_write_direct(chip->client, TCS344x_REGADDR_ENABLE, (TCS344x_AEN | /*TCS344x_FDEN |*/ TCS344x_PON));
+        }
+        ret = ams_i2c_write_direct(chip->client, TCS344x_REGADDR_CFG_20, 0x62);
     }
     else
     {
-        ret = ams_i2c_write_direct(chip->client, TCS344x_REGADDR_ENABLE, (TCS344x_AEN | /*TCS344x_FDEN |*/ TCS344x_PON));
+            ret = ams_i2c_write_direct(chip->client, TCS344x_REGADDR_CFG_20, 0x62);
+            ret = ams_i2c_write_direct(chip->client, TCS344x_REGADDR_ENABLE, (TCS344x_AEN | TCS344x_PON));
     }
-    ret = ams_i2c_write_direct(chip->client, TCS344x_REGADDR_CFG_20, 0x62);
+
 
     return;
 }
@@ -463,8 +485,8 @@ static int tcs344x_read_data(struct tcs344x_chip *chip)
     int i = 0;
 
     /* Read ASTATUS through ASTATUS and ALS Channel data, 37 */
-    ret = ams_i2c_blk_read(chip->client, TCS344x_REGADDR_ASTATUS, &data[0], 32);
-    ret = ams_i2c_blk_read(chip->client, TCS344x_REGADDR_CH15_DATA, &data[32], 6);
+    ret = ams_i2c_blk_read(chip->client, TCS344x_REGADDR_ASTATUS, &data[0], 31);
+    ret = ams_i2c_blk_read(chip->client, TCS344x_REGADDR_CH15_DATA, &data[31], 6);
 
 	if (ret != 0)
     {
@@ -624,7 +646,7 @@ static int tcs344x_read_flicker(struct tcs344x_chip *chip, uint8_t fd_status)
 
 static int tcs344x_irq_handler(struct tcs344x_chip *chip)
 {
-    u8 status, status2, status4;
+    u8 status, status2, status4, status5;
     u8 fd_status = 0;
     int ret;
     /* struct device *dev = &chip->client->dev; */
@@ -640,6 +662,7 @@ static int tcs344x_irq_handler(struct tcs344x_chip *chip)
 
     ams_i2c_read(chip->client, TCS344x_REGADDR_STATUS_2, &status2);
     ams_i2c_read(chip->client, TCS344x_REGADDR_STATUS_4, &status4);
+    ams_i2c_read(chip->client, TCS344x_REGADDR_STATUS_5, &status5);
     ams_i2c_read(chip->client, TCS344x_REGADDR_FLICKR_STATUS, &fd_status);
 
     /* Check for SAI */
@@ -655,8 +678,6 @@ static int tcs344x_irq_handler(struct tcs344x_chip *chip)
         {
             chip->in_asat = 1;
 
-            //ams_i2c_read(chip->client, TCS344x_REGADDR_STATUS_2, &status2);
-            //ams_i2c_write_direct(chip->client, TCS344x_REGADDR_STATUS_2, status2);
             ret = ams_i2c_read(chip->client, TCS344x_REGADDR_STATUS , &status);
             dev_warn(&chip->client->dev,
                          "Saturation, ASAT is %d STATUS2 = %x \n", chip->in_asat, status2);
@@ -679,30 +700,58 @@ static int tcs344x_irq_handler(struct tcs344x_chip *chip)
      * The system interrupt will correspond to flicker
      * as, flicker detection is configured.
      */
+#ifdef FLICKER_ENABLE 
     if ((status & (TCS344x_AINT | TCS344x_SINT)))
+#else        
+    if (status & TCS344x_AINT)
+#endif        
     {
         if(status2 & TCS344x_AVALID)
         {
             ret = tcs344x_read_data(chip);
         }
-         
-        ret = tcs344x_read_flicker(chip, fd_status);
-        
-        if(chip->is_flicker_smux_configed == false)
+
+        if(chip->params.flicker_enable)
         {
-            /* Turn only PON on and write smux config */
-            ams_i2c_write_direct(chip->client, TCS344x_REGADDR_ENABLE, TCS344x_PON);
-            smux_write_config_data(chip, true, smux_flicker_configuration_data);
-            chip->is_flicker_smux_configed = true;
+            ret = tcs344x_read_flicker(chip, fd_status);
+        }
+
+        /**
+         *  If flicker is enabled in the dts, then alternately 
+         *  write the smux for flicker and als.
+         *  Otherwise, write the als smux only once.
+         */
+        if(chip->params.flicker_enable)
+        {
+            if(chip->is_flicker_smux_configed == false)
+            {
+                /* Turn only PON on and write smux config */
+                ams_i2c_write_direct(chip->client, TCS344x_REGADDR_ENABLE, TCS344x_PON);
+                smux_write_config_data(chip, true, smux_flicker_configuration_data);
+                chip->is_flicker_smux_configed = true;
+            }
+            else
+            {
+                /* Turn only PON on and write smux config */
+                ams_i2c_write_direct(chip->client, TCS344x_REGADDR_ENABLE, TCS344x_PON);
+                smux_write_config_data(chip, true, smux_als_configuration_data);
+                chip->is_flicker_smux_configed = false;
+            }
         }
         else
         {
+            /**
+             *  Write als smux configuration data only once
+             */
             /* Turn only PON on and write smux config */
-            ams_i2c_write_direct(chip->client, TCS344x_REGADDR_ENABLE, TCS344x_PON);
-            smux_write_config_data(chip, true, smux_als_configuration_data);
-            chip->is_flicker_smux_configed = false;
+            if(chip->is_flicker_smux_configed == false)
+            {
+                ams_i2c_write_direct(chip->client, TCS344x_REGADDR_ENABLE, TCS344x_PON);
+                smux_write_config_data(chip, true, smux_als_configuration_data);
+                chip->is_flicker_smux_configed = true;
+            }
         }
-        
+
         if (chip->is_spectral_ready == true)
         {
             wake_up_interruptible(&chip->fifo_wait);
@@ -712,8 +761,11 @@ static int tcs344x_irq_handler(struct tcs344x_chip *chip)
     /* Clear the status */
     ams_i2c_write_direct(chip->client, TCS344x_REGADDR_STATUS, status);
     ams_i2c_write_direct(chip->client, TCS344x_REGADDR_STATUS_2, status2);
-    ams_i2c_write_direct(chip->client, TCS344x_REGADDR_FLICKR_STATUS, fd_status);
-        
+
+    if(chip->params.flicker_enable)
+    {
+        ams_i2c_write_direct(chip->client, TCS344x_REGADDR_FLICKR_STATUS, fd_status);
+    }
 
     AMS_MUTEX_UNLOCK(&chip->lock);
 
@@ -817,6 +869,7 @@ static void tcs344x_set_defaults(struct tcs344x_chip *chip)
         chip->params.fd_time2       = chip->pdata->parameters.fd_time2;
         chip->params.fd_fifo_map    = chip->pdata->parameters.fd_fifo_map;
         chip->params.sai_enable     = chip->pdata->parameters.sai_enable;
+        chip->params.flicker_enable     = chip->pdata->parameters.flicker_enable;
     } else {
         dev_info(dev, "%s: use defaults\n", __func__);
         /*Note - if it is a 0 in all bits in the data sheet - omit */
@@ -835,6 +888,7 @@ static void tcs344x_set_defaults(struct tcs344x_chip *chip)
         chip->params.fd_time2 = DEFAULT_FD_TIME_2;
         chip->params.fd_fifo_map = DEFAULT_FIFO_MAP;
         chip->params.sai_enable = 0;
+        chip->params.flicker_enable = 0;
     }
 
     chip->params.enable = 0x01;            /* PON -also enable Spectral? - 0x03 ? */
@@ -845,7 +899,6 @@ static void tcs344x_set_defaults(struct tcs344x_chip *chip)
         chip->params.cfg8 = 0xC4;       /* auto-gain AGC enable */
     }
 
-    //chip->params.cfg0 = 0x00 | 0x38 | 0x00; //Goertzel mode | 1024 samples | compare_value                                                      
     chip->params.fd_cfg0 = DISABLE_FIFO_WRITE_FD | NUM_FD_SAMPLES_256 | FD_COMPARE_LIMIT; //Goertzel mode | 1024 samples | compare_value          
     chip->params.cfg9 = 0x40;                                                                                                                     
     chip->params.cfg10 = 0xF0;                                                                                                                    
@@ -854,8 +907,9 @@ static void tcs344x_set_defaults(struct tcs344x_chip *chip)
     chip->params.cfg20 = 0x62;                                                                                                                    
     chip->params.gpio2 = 0x02;                                                                                                                    
     chip->is_spectral_ready = false;                                                                                                              
-    chip->params.ram_bank   = 0x01;     /* Selection of RAM banl 0/1 */                                                                           
+    chip->params.ram_bank   = 0x00;     /* Selection of RAM bank 0/1 */                                                                           
 
+    chip->params.pcfg1 = 0x08;
 
     if (chip->pdata->parameters.sai_enable == 1)
     {
@@ -874,7 +928,7 @@ static void tcs344x_set_defaults(struct tcs344x_chip *chip)
     sh[TCS344x_REGADDR_ASTEP_L]     = chip->params.ls_astep;                                             
     sh[TCS344x_REGADDR_ASTEP_H]     = chip->params.ms_astep;                                             
     sh[TCS344x_REGADDR_CFG_0]       = chip->params.ram_bank;                                               
-    sh[TCS344x_REGADDR_CFG_1]       = chip->params.again;                                                  
+    sh[TCS344x_REGADDR_CFG_1]       = chip->params.again; 
     sh[TCS344x_REGADDR_CFG_3]       = chip->params.cfg3;                                                   
     sh[TCS344x_REGADDR_CFG_8]       = chip->params.cfg8;                                                   
     sh[TCS344x_REGADDR_CFG_10]      = chip->params.cfg10;                                                 
@@ -886,8 +940,9 @@ static void tcs344x_set_defaults(struct tcs344x_chip *chip)
     sh[TCS344x_REGADDR_AZCONFIG]    = chip->params.azconfig;                                            
     sh[TCS344x_REGADDR_FD_CFG_0]    = chip->params.fd_cfg0;                                             
     sh[TCS344x_REGADDR_FD_CFG_1]    = chip->params.fd_time1;                                            
-    sh[TCS344x_REGADDR_FD_CFG_3]    = chip->params.fd_time2;                                               
-    sh[TCS344x_REGADDR_FIFO_MAP]    = chip->params.fd_fifo_map;                                         
+    sh[TCS344x_REGADDR_FD_CFG_3]    = chip->params.fd_time2;
+    sh[TCS344x_REGADDR_FIFO_MAP]    = chip->params.fd_fifo_map;
+    sh[TCS344x_REGADDR_PCFG_1]      = chip->params.pcfg1;
 
 	tcs344x_flush_regs(chip);
 
@@ -895,12 +950,16 @@ static void tcs344x_set_defaults(struct tcs344x_chip *chip)
 
 static int tcs344x_get_id(struct tcs344x_chip *chip, u8 *id, u8 *rev, u8 *auxid, uint8_t *chip_id)
 {
+#ifdef READ_CHIP_ID    
 		ams_i2c_write_direct(chip->client, TCS344x_REGADDR_CFG_0, 0x10);
+#endif        
         ams_i2c_read(chip->client, TCS344x_REGADDR_AUXID, auxid);
         ams_i2c_read(chip->client, TCS344x_REGADDR_REVID, rev);
         ams_i2c_read(chip->client, TCS344x_REGADDR_ID, id);
+#ifdef READ_CHIP_ID
 		ams_i2c_blk_read(chip->client, TCS344x_REGADDR_CHIP_ID , (u8 *)chip_id, 5);
-		ams_i2c_write_direct(chip->client, TCS344x_REGADDR_CFG_0, 0x00);
+        ams_i2c_write_direct(chip->client, TCS344x_REGADDR_CFG_0, 0x00);
+#endif  
 
 		return 0;
 }
@@ -965,8 +1024,13 @@ static int tcs344x_als_idev_open(struct input_dev *idev)
         ams_i2c_read(chip->client, TCS344x_REGADDR_ENABLE, &status);
         dev_info(&idev->dev, "als_idev_open Enable = %02x\n", status);
         set_spectral_mode(TCS344x_ALS_MODE);
-        init_flicker(chip);
-        enable_flicker(chip, 1);
+        
+        
+        if(chip->params.flicker_enable)
+        {
+            init_flicker(chip);
+            enable_flicker(chip, 1);
+        }
         config_als(chip);
         //smux_write_config_data(chip, true);
         enable_als(chip, 1);
@@ -985,7 +1049,6 @@ static void tcs344x_als_idev_close(struct input_dev *idev)
         dev_info(&idev->dev, "%s\n", __func__);
         AMS_MUTEX_LOCK(&chip->lock);
 
-        //enable_flicker(chip, 0);
         enable_als(chip, 0);
 
         ams_i2c_read(chip->client, TCS344x_REGADDR_ENABLE, &status);
@@ -1063,6 +1126,9 @@ int tcs344x_init_dt(struct tcs344x_i2c_platform_data *pdata)
         if (!of_property_read_u32(np, "sai_enable", &val))
                 pdata->parameters.sai_enable = val;
 
+        if (!of_property_read_u32(np, "flicker_enable", &val))
+                pdata->parameters.flicker_enable = val;
+        
         return 0;
 }
 #endif
@@ -1679,7 +1745,7 @@ static int tcs344x_remove(struct i2c_client *client)
         return 0;
 }
 
-#ifdef SANJAT
+#if 0
 /*
  * This function is to set the I2C operating voltage of TCS344x
  */

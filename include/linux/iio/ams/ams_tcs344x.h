@@ -564,6 +564,7 @@ struct tcs344x_parameters {
         u8 cfg11; /* reg 0xB4 - ALS interrupt */
         u8 cfg12; /* reg 0xB5 - spectral threshold channel */
         u8 cfg20; /* reg 0xD6 - smux auto config */
+        u8 pcfg1;
         u8 persist; /* reg 0xBD */
         u8 gpio2;
         u8 ls_astep;
@@ -585,6 +586,7 @@ struct tcs344x_parameters {
         u8 init_state;
 		u8 sai_enable;
 		u8 ram_bank;
+        u8 flicker_enable;
 };
 
 #define MATRIX_ROW_SIZE 3

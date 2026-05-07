@@ -497,7 +497,7 @@ config TCS3472
 config SENSORS_TCS344x
 	tristate "AMS TCS344x ALS"
 	depends on I2C
-	default n
+	default y
 	help
 		If you say yes here you get support for the ams tcs344x,
 		ALS light sensors.
