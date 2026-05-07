@@ -1712,7 +1712,7 @@ static int tcs344x_resume(struct device *dev)
         return 0;
 }
 
-static int tcs344x_remove(struct i2c_client *client)
+static void tcs344x_remove(struct i2c_client *client)
 {
         struct tcs344x_chip *chip = i2c_get_clientdata(client);
 
@@ -1742,7 +1742,7 @@ static int tcs344x_remove(struct i2c_client *client)
         kfree(chip->pdata);
 #endif
         kfree(chip);
-        return 0;
+        return;
 }
 
 #if 0
