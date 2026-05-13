@@ -273,6 +273,7 @@
 		fd_time2 = <0x11>;
 		fd_fifo_map = <0>;
 		sai_enable = <0>;
+		flicker_enable = <0>;
 	};
 };
 
