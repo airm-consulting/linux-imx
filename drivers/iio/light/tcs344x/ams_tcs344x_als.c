@@ -274,7 +274,7 @@ int tcs344x_calculate_lux_and_cct(struct tcs344x_chip *chip, const struct adc_da
         xyz->chromaticity_y = _qkdiv(xyz->tristimulus.y, sum, qf, qf, qf);
 
 
-        dev_info(&chip->client->dev, "xyz->chromaticity_x = %llu, xyz->chromaticity_y = %llu,  %s, %d",                             
+        dev_dbg(&chip->client->dev, "xyz->chromaticity_x = %llu, xyz->chromaticity_y = %llu,  %s, %d",                             
                             xyz->chromaticity_x, xyz->chromaticity_y, __func__, __LINE__); 
     }
 
@@ -282,7 +282,7 @@ int tcs344x_calculate_lux_and_cct(struct tcs344x_chip *chip, const struct adc_da
     tmp_lux = _q2int(xyz->tristimulus.y, qf);
     xyz->lux = max(tmp_lux, 0);
 
-    dev_info(&chip->client->dev, "xyz->tristimulus.x = %llu, xyz->tristimulus.y = %llu, xyz->tristimulus.z = %llu, %s, %d",                             
+    dev_dbg(&chip->client->dev, "xyz->tristimulus.x = %llu, xyz->tristimulus.y = %llu, xyz->tristimulus.z = %llu, %s, %d",                             
                             xyz->tristimulus.x, xyz->tristimulus.y, xyz->tristimulus.z, __func__, __LINE__); 
 
     /* Calculate cct */

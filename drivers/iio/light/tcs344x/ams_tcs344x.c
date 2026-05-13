@@ -256,7 +256,7 @@ static void report_als_event(struct tcs344x_chip *chip, int type, int value)
 int read_fifo_data(struct tcs344x_chip *chip, uint16_t *buf, int _size)
 {
 	int ret = 0;
-	dev_info(&chip->client->dev, "%s %d \n", __func__, __LINE__);
+	dev_dbg(&chip->client->dev, "%s %d \n", __func__, __LINE__);
 	ret = kfifo_out(&ams_kfifo, (char *)buf, _size);
 	kfifo_reset(&ams_kfifo);
 
@@ -466,7 +466,7 @@ static void tcs344x_process_data(struct tcs344x_chip *chip)
 	_adc_data.astep_h 	= chip->pdata->out_data[IDX_ASTEP_H];
 
 	tcs344x_calculate_lux_and_cct(chip, &_adc_data, NULL, xyz);
-	dev_info(&chip->client->dev, "LUX = %d, CCT=%d\n", xyz->lux, xyz->cct);
+	dev_dbg(&chip->client->dev, "LUX = %d, CCT=%d\n", xyz->lux, xyz->cct);
 
 	return;
 }
@@ -823,8 +823,7 @@ static int tcs344x_pltf_power_on(struct tcs344x_chip *chip)
 		mdelay(10);
 	}
 	chip->unpowered = rc != 0;
-	dev_info(&chip->client->dev, "%s: unpowered=%d\n", __func__,
-			chip->unpowered);
+	dev_info(&chip->client->dev, "%s: unpowered=%d\n", __func__, chip->unpowered);
 	return rc;
 }
 
@@ -962,6 +961,14 @@ static int tcs344x_get_id(struct tcs344x_chip *chip, u8 *id, u8 *rev, u8 *auxid,
 #endif  
 
 	return 0;
+}
+
+static bool tcs344x_present(struct tcs344x_chip *chip)
+{
+	u8 id;
+	int ret = ams_i2c_read(chip->client, TCS344x_REGADDR_ID, &id);
+
+	return (ret >= 0);
 }
 
 static void config_als(struct tcs344x_chip *chip)
@@ -1437,8 +1444,6 @@ static int tcs344x_probe(struct i2c_client *client,
 	uint8_t chip_serial_number[5];
 	uint64_t temp_chip_serial_number;
 
-	bool powered = 0;
-
 	pr_info("\nTCS344x: probe()\n");
 	dev_info(dev, "%s: client->irq = %d\n", __func__, client->irq);
 
@@ -1470,46 +1475,28 @@ static int tcs344x_probe(struct i2c_client *client,
 	dev_info(dev, "%s: client->irq = %d\n", __func__, client->irq);
 	dev_info(dev, "%s: als_name = %s\n", __func__, pdata->als_name );
 
-	dev_info(dev, "%s: pre i2c_check_functionality\n", __func__); // DON
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_SMBUS_BYTE_DATA)) {
-		dev_info(dev, "%s: pre i2c_check_functionality FAILED\n", __func__); // DON
 		dev_err(dev, "%s: i2c smbus byte data unsupported\n", __func__);
 		ret = -EOPNOTSUPP;
 		goto init_failed;
 	}
-	dev_info(dev, "%s: check !pdata\n", __func__); // DON
 	if (!pdata) {
-		dev_info(dev, "%s: check !pdata FAILED\n", __func__); // DON
 		dev_err(dev, "%s: platform data required\n", __func__);
 		ret = -EINVAL;
 		goto init_failed;
 	}
 
-	dev_info(dev, "%s: check als_name(%s) || irq(%d) \n", __func__, pdata->als_name, client->irq); // DON
 	if (!(pdata->als_name) || client->irq < 0) {
-		dev_info(dev, "%s: check als_name || irq FAILED\n", __func__); // DON
 		dev_err(dev, "%s: no reason to run.\n", __func__);
 		ret = -EINVAL;
 		goto init_failed;
 	}
 
-	dev_info(dev, "%s: pre platform_init (0x%08X)\n", __func__, pdata->platform_init); // DON
 	if (pdata->platform_init) {
 		ret = pdata->platform_init();
 		if (ret)
 			goto init_failed;
 	}
-	dev_info(dev, "%s: pre platform_power (0x%08X)\n", __func__, pdata->platform_power); // DON
-	if (pdata->platform_power) {
-		ret = pdata->platform_power(dev, POWER_ON);
-		if (ret) {
-			dev_err(dev, "%s: pltf power on failed\n", __func__);
-			goto pon_failed;
-		}
-		powered = true;
-		mdelay(10);
-	}
-	dev_info(dev, "%s: pre kzalloc()\n", __func__); // DON
 
 	chip = kzalloc(sizeof(struct tcs344x_chip), GFP_KERNEL);
 	if (!chip) {
@@ -1517,25 +1504,30 @@ static int tcs344x_probe(struct i2c_client *client,
 		goto malloc_failed;
 	}
 
-	dev_info(dev, "%s: pre mutex_init()\n", __func__); // DON
 	mutex_init(&chip->lock);
 	chip->client = client;
 	chip->driver_remove = false;
 	chip->pdata = pdata;
-	dev_info(dev, "%s: pre i2c_set_clientdata()\n", __func__); // DON
 	i2c_set_clientdata(client, chip);
 
-	if (pdata->platform_power) {
-		pdata->platform_power(dev, POWER_OFF);
-		powered = false;
-		chip->unpowered = true;
+	ret = tcs344x_pltf_power_on(chip);
+	if (ret) {
+		dev_err(dev, "%s: pltf power on failed\n", __func__);
+		goto malloc_failed;
+	}
+
+	// Make sure device is present and resonding on the I2C bus
+	if (!tcs344x_present(chip)) {
+		dev_err(dev, "%s: TCS344X Not Present\n", __func__);
+		goto init_failed;
 	}
 
 	/*
 	 * Initialize ALS
 	 */
-	if (!pdata->als_name)
+	if (!pdata->als_name) {
 		goto bypass_als_idev;
+	}
 	chip->als_idev = input_allocate_device();
 	if (!chip->als_idev) {
 		dev_err(dev, "%s: no memory for input_dev '%s'\n", __func__,
@@ -1557,14 +1549,12 @@ static int tcs344x_probe(struct i2c_client *client,
 	/*
 	 * Set chip defaults
 	 */
-	dev_info(dev, "%s: pre tcs344x_set_defaults()\n", __func__); // DON
 	tcs344x_set_defaults(chip);
 
 	/*
 	 * Validate the appropriate ams device is available for this driver
 	 */
 
-	dev_info(dev, "%s: pre tcs344x_get_id()\n", __func__); // DON
 	ret = tcs344x_get_id(chip, &id, &rev, &auxid, &chip_serial_number[0]);
 
 	/*
@@ -1608,14 +1598,15 @@ static int tcs344x_probe(struct i2c_client *client,
 
 	if (sysfs_create_groups(&chip->als_idev->dev.kobj, tcs344x_sysfs_groups)) {
 		dev_err(&chip->als_idev->dev, "Error creating sysfs attribute group.\n");
+		goto input_a_alloc_failed;
 	}
 
 	chip->als_input_open = false;
 	/* If both Spectral enable and Wait Enable are set - use the thread */
 	ams_i2c_read(chip->client, TCS344x_REGADDR_ENABLE, &status);
-	dev_info(dev, "%s: After read Enable 2 = %02x \n", __func__, status);
-	if (ret)
+	if (ret) {
 		goto input_a_sysfs_failed;
+	}
 #ifdef CONFIG_QUALCOMM_AP
 	chip->als_cdev = als_sensors_cdev;
 	chip->als_cdev.sensors_enable = tcs344x_als_set_enable;
@@ -1645,6 +1636,8 @@ bypass_als_idev:
 
 	INIT_KFIFO(ams_kfifo);
 
+	tcs344x_pltf_power_off(chip);
+
 	dev_info(dev, "Probe ok.\n");
 	return 0;
 
@@ -1667,14 +1660,11 @@ id_failed:
 	i2c_set_clientdata(client, NULL);
 
 malloc_failed:
-	if (powered && pdata->platform_power)
+	if (pdata->platform_power)
 		pdata->platform_power(dev, POWER_OFF);
-pon_failed:
 	if (pdata->platform_teardown)
 		pdata->platform_teardown(dev);
 init_failed:
-	devm_free_irq(&client->dev, client->irq, chip);
-	gpio_free(pdata->ams_irq_gpio);
 	kfree(pdata);
 	kfree(chip);
 	dev_err(dev, "Probe failed.\n");
