@@ -66,14 +66,6 @@
 #ifdef CONFIG_QUALCOMM_AP
 #include <linux/sensors.h>
 
-/*
- * To enable and disable printing of the raw data
- *
- * 0 => DISABLED
- * 1 => ENABLED
- */
-#define PRINT_RAW_DATA (0)
-
 #define FLICKER_ENABLE (0)
 
 static u8 data[256];
@@ -520,20 +512,14 @@ static int tcs344x_read_data(struct tcs344x_chip *chip)
 		temp_value = ((data[32] << 8) | data[31]);
 		chip->pdata->out_data[IDX_f5_raw] = temp_value;
 
-#ifdef PRINT_RAW_DATA
-		dev_info(&chip->client->dev, "RAW data: %d %d %d %d %d %d %d %d %d %d %d %d %d\n",
+		dev_dbg(&chip->client->dev, "RAW data: %d %d %d %d %d %d %d %d %d %d %d %d %d\n",
 				chip->pdata->out_data[IDX_f1_raw], chip->pdata->out_data[IDX_f2_raw],
 				chip->pdata->out_data[IDX_z_raw], chip->pdata->out_data[IDX_f3_raw],
-				chip->pdata->out_data[IDX_f4_raw], chip->pdata->out_data[IDX_y_raw],
-				chip->pdata->out_data[IDX_f5_raw], chip->pdata->out_data[IDX_x1_raw],
+				chip->pdata->out_data[IDX_f4_raw], chip->pdata->out_data[IDX_f5_raw],
+				chip->pdata->out_data[IDX_y_raw], chip->pdata->out_data[IDX_x1_raw],
 				chip->pdata->out_data[IDX_f6_raw], chip->pdata->out_data[IDX_f7_raw],
 				chip->pdata->out_data[IDX_f8_raw], chip->pdata->out_data[IDX_nir_raw],
 				chip->pdata->out_data[IDX_vis_raw]);
-#endif // End of __PRINT_RAW_DATA__
-
-		for (i = 0; i < 13; i++) {
-			chip->pdata->raw_data[i] = chip->pdata->out_data[i];
-		}
 
 		ret = ams_i2c_read(chip->client, TCS344x_REGADDR_CFG_1, &temp_value_1);
 		chip->pdata->out_data[IDX_AGAIN] = (u16)((temp_value_1 & 0x1F));
@@ -546,13 +532,15 @@ static int tcs344x_read_data(struct tcs344x_chip *chip)
 		ret = ams_i2c_read(chip->client, TCS344x_REGADDR_ASTEP_H, &temp_value_1);
 		chip->pdata->out_data[IDX_ASTEP_H] = (u16)(temp_value_1) ;
 
-#ifdef PRINT_RAW_DATA
-		dev_info(&chip->client->dev, "Data ready - again: 0x%x, atime: 0x%x, astep_l: 0x%x, astep_h: 0x%x\n",
+		for (i = 0; i < 17; i++) {
+			chip->pdata->raw_data[i] = chip->pdata->out_data[i];
+		}
+
+		dev_dbg(&chip->client->dev, "Data ready - again: 0x%x, atime: 0x%x, astep_l: 0x%x, astep_h: 0x%x\n",
 				chip->pdata->out_data[IDX_AGAIN],
 				chip->pdata->out_data[IDX_ATIME],
 				chip->pdata->out_data[IDX_ASTEP_L],
 				chip->pdata->out_data[IDX_ASTEP_H]);
-#endif  //End of PRINT_RAW_DATA
 
 		chip->is_spectral_ready = true;
 
@@ -560,7 +548,7 @@ static int tcs344x_read_data(struct tcs344x_chip *chip)
 		{
 			kfifo_in(&ams_kfifo, (u8 *)chip->pdata->out_data, TCS344x_RAW_DATA_BYTE_COUNT);
 			fifo_length = kfifo_len(&ams_kfifo);
-			// dev_info(&chip->client->dev, "Data ready - kfifo_length = %d %s %d \n", fifo_length, __FILE__, __LINE__);
+			dev_dbg(&chip->client->dev, "Data ready - kfifo_length = %d %s %d \n", fifo_length, __FILE__, __LINE__);
 
 			tcs344x_process_data(chip);
 			report_als_event(chip, ABS_MISC, chip->xyz.lux);
@@ -1315,16 +1303,49 @@ static ssize_t raw_data_show(struct device *dev,
 {
 	struct tcs344x_chip *chip = dev_get_drvdata(dev);
 	int count;
+	u16 astep;
+	u16 atime;
+	u16 again;
 
 	AMS_MUTEX_LOCK(&chip->lock);
-	count =  snprintf(buf, PAGE_SIZE, "%d %d %d %d %d %d %d %d %d %d %d %d %d\n",
-			chip->pdata->raw_data[IDX_f1_raw], chip->pdata->raw_data[IDX_f2_raw],
-			chip->pdata->raw_data[IDX_z_raw], chip->pdata->raw_data[IDX_f3_raw],
-			chip->pdata->raw_data[IDX_f4_raw], chip->pdata->raw_data[IDX_y_raw],
-			chip->pdata->raw_data[IDX_f5_raw], chip->pdata->raw_data[IDX_x1_raw],
-			chip->pdata->raw_data[IDX_f6_raw], chip->pdata->raw_data[IDX_f7_raw],
-			chip->pdata->raw_data[IDX_f8_raw], chip->pdata->raw_data[IDX_nir_raw],
-			chip->pdata->raw_data[IDX_vis_raw]);
+	astep = ((chip->pdata->raw_data[IDX_ASTEP_H] << 8) | chip->pdata->raw_data[IDX_ASTEP_L]);
+	atime = chip->pdata->raw_data[IDX_ATIME];
+	again = (1 << chip->pdata->raw_data[IDX_AGAIN]) / 2;
+	count =  snprintf(buf, PAGE_SIZE, 
+			"{"
+			"\n\t\"407nm_count\": %d,"
+			"\n\t\"424nm_count\": %d,"
+			"\n\t\"450nm_count\": %d,"
+			"\n\t\"473nm_count\": %d,"
+			"\n\t\"516nm_count\": %d,"
+			"\n\t\"546nm_count\": %d,"
+			"\n\t\"560nm_count\": %d,"
+			"\n\t\"596nm_count\": %d,"
+			"\n\t\"636nm_count\": %d,"
+			"\n\t\"687nm_count\": %d,"
+			"\n\t\"748nm_count\": %d,"
+			"\n\t\"855nm_count\": %d,"
+			"\n\t\"visnm_count\": %d,"
+			"\n\t\"astep\": %d,"
+			"\n\t\"atime\": %d,"
+			"\n\t\"again\": %d"
+			"\n}",
+			chip->pdata->raw_data[IDX_f1_raw],
+			chip->pdata->raw_data[IDX_f2_raw],
+			chip->pdata->raw_data[IDX_z_raw],
+			chip->pdata->raw_data[IDX_f3_raw],
+			chip->pdata->raw_data[IDX_f4_raw],
+			chip->pdata->raw_data[IDX_f5_raw],
+			chip->pdata->raw_data[IDX_y_raw],
+			chip->pdata->raw_data[IDX_x1_raw],
+			chip->pdata->raw_data[IDX_f6_raw],
+			chip->pdata->raw_data[IDX_f7_raw],
+			chip->pdata->raw_data[IDX_f8_raw],
+			chip->pdata->raw_data[IDX_nir_raw],
+			chip->pdata->raw_data[IDX_vis_raw],
+			astep,
+			atime,
+			again);
 	AMS_MUTEX_UNLOCK(&chip->lock);
 	return count;
 }
