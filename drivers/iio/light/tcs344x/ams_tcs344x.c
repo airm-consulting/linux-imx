@@ -113,6 +113,23 @@ enum tcs344x_channel_index {
 	IDX_ASTEP_H,
 };
 
+/* gain × 1000 (fixed-point) */
+static const u32 tcs3448_gain_table[] = {
+	500,      /* 0.5x */
+	1000,     /* 1x   */
+	2000,     /* 2x   */
+	4000,     /* 4x   */
+	8000,     /* 8x   */
+	16000,    /* 16x  */
+	32000,    /* 32x  */
+	64000,    /* 64x  */
+	128000,   /* 128x */
+	256000,   /* 256x */
+	512000,   /* 512x */
+	1024000,  /* 1024x */
+	2048000   /* 2048x */
+};
+
 /* SMUX Configuration */
 #define SMUX_SIZE (30)
 
@@ -320,6 +337,7 @@ static void enable_als(struct tcs344x_chip *chip, u8 enable)
 
 	}
 
+	chip->als_ready = false;
 	chip->enabled = enable;
 }
 
@@ -554,6 +572,7 @@ static int tcs344x_read_data(struct tcs344x_chip *chip)
 			report_als_event(chip, ABS_MISC, chip->xyz.lux);
 			memset(chip->pdata->out_data, 0x00, sizeof(chip->pdata->out_data));
 		}
+		chip->als_ready = true;
 	}
 
 #if 0
@@ -1198,6 +1217,164 @@ int stop_spectral_measurement(struct tcs344x_chip *chip)
 /*
  * Sysfs ABI
  */
+static ssize_t ready_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	struct tcs344x_chip *chip = dev_get_drvdata(dev);
+	int count;
+
+	AMS_MUTEX_LOCK(&chip->lock);
+	count = snprintf(buf, PAGE_SIZE, "%d\n", chip->als_ready ? 1 : 0);
+	AMS_MUTEX_UNLOCK(&chip->lock);
+
+	return count;
+}
+
+static ssize_t again_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t size)
+{
+	struct tcs344x_chip *chip = dev_get_drvdata(dev);
+	u8 *sh = chip->shadow;
+	unsigned int again;
+	int rc;
+
+	if (chip->enabled) {
+		dev_err(&chip->client->dev, "Device busy.\n");
+		return -EBUSY;
+	}
+
+	rc = kstrtouint(buf, 10, &again);
+	if (rc != 0) {
+		dev_err(&chip->client->dev, "kstrtouint() error.\n");
+		return -EINVAL;
+	}
+
+	if (again > 12) {
+		dev_err(&chip->client->dev, "Range error.\n");
+		return -EINVAL;
+	}
+
+	AMS_MUTEX_LOCK(&chip->lock);
+	chip->params.again = again;
+	sh[TCS344x_REGADDR_CFG_1] = chip->params.again & 0x1F;
+	tcs344x_flush_regs(chip);
+	AMS_MUTEX_UNLOCK(&chip->lock);
+
+	return size;
+}
+
+static ssize_t again_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct tcs344x_chip *chip = dev_get_drvdata(dev);
+	uint8_t temp;
+	uint16_t again;
+	int count;
+
+	AMS_MUTEX_LOCK(&chip->lock);
+	ams_i2c_read(chip->client, TCS344x_REGADDR_CFG_1, &temp);
+	again = (u16)((temp & 0x1F));
+	count =  snprintf(buf, PAGE_SIZE, "%u\n", again);
+	AMS_MUTEX_UNLOCK(&chip->lock);
+	return count;
+}
+
+static ssize_t atime_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t size)
+{
+	struct tcs344x_chip *chip = dev_get_drvdata(dev);
+	u8 *sh = chip->shadow;
+	unsigned int atime;
+	int rc;
+
+	if (chip->enabled) {
+		dev_err(&chip->client->dev, "Device busy.\n");
+		return -EBUSY;
+	}
+
+	rc = kstrtouint(buf, 10, &atime);
+	if (rc != 0) {
+		dev_err(&chip->client->dev, "kstrtouint() error.\n");
+		return -EINVAL;
+	}
+
+	if (atime > 255) {
+		dev_err(&chip->client->dev, "Range error.\n");
+		return -EINVAL;
+	}
+
+	AMS_MUTEX_LOCK(&chip->lock);
+	chip->params.atime = atime;
+	sh[TCS344x_REGADDR_ATIME] = (u8)atime;
+	tcs344x_flush_regs(chip);
+	AMS_MUTEX_UNLOCK(&chip->lock);
+
+	return size;
+}
+
+static ssize_t atime_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct tcs344x_chip *chip = dev_get_drvdata(dev);
+	uint8_t atime;
+	int count;
+
+	AMS_MUTEX_LOCK(&chip->lock);
+	ams_i2c_read(chip->client, TCS344x_REGADDR_ATIME, &atime);
+	count =  snprintf(buf, PAGE_SIZE, "%u\n", atime);
+	AMS_MUTEX_UNLOCK(&chip->lock);
+	return count;
+}
+
+static ssize_t astep_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t size)
+{
+	struct tcs344x_chip *chip = dev_get_drvdata(dev);
+	u8 *sh = chip->shadow;
+	unsigned int astep;
+	int rc;
+
+	if (chip->enabled) {
+		dev_err(&chip->client->dev, "Device busy.\n");
+		return -EBUSY;
+	}
+
+	rc = kstrtouint(buf, 10, &astep);
+	if (rc != 0) {
+		dev_err(&chip->client->dev, "kstrtouint() error.\n");
+		return -EINVAL;
+	}
+
+	AMS_MUTEX_LOCK(&chip->lock);
+	sh[TCS344x_REGADDR_ASTEP_L] = (u8)(astep & 0xFF);
+	sh[TCS344x_REGADDR_ASTEP_H] = (u8)(astep >> 8);
+	tcs344x_flush_regs(chip);
+	AMS_MUTEX_UNLOCK(&chip->lock);
+
+	return size;
+}
+
+static ssize_t astep_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct tcs344x_chip *chip = dev_get_drvdata(dev);
+	uint16_t astep;
+	uint8_t temp;
+	int count;
+
+	AMS_MUTEX_LOCK(&chip->lock);
+	ams_i2c_read(chip->client, TCS344x_REGADDR_ASTEP_L, &temp);
+	astep = (temp);
+	ams_i2c_read(chip->client, TCS344x_REGADDR_ASTEP_H, &temp);
+	astep += ((u16)temp) << 8;
+	count =  snprintf(buf, PAGE_SIZE, "%u\n", astep);
+	AMS_MUTEX_UNLOCK(&chip->lock);
+	return count;
+}
 
 static ssize_t enable_store(struct device *dev,
 		struct device_attribute *attr,
@@ -1305,12 +1482,16 @@ static ssize_t raw_data_show(struct device *dev,
 	int count;
 	u16 astep;
 	u16 atime;
-	u16 again;
+	u32 again_fp, again_int, again_frac;
+	u32 int_time;
 
 	AMS_MUTEX_LOCK(&chip->lock);
 	astep = ((chip->pdata->raw_data[IDX_ASTEP_H] << 8) | chip->pdata->raw_data[IDX_ASTEP_L]);
 	atime = chip->pdata->raw_data[IDX_ATIME];
-	again = (1 << chip->pdata->raw_data[IDX_AGAIN]) / 2;
+	again_fp = tcs3448_gain_table[chip->pdata->raw_data[IDX_AGAIN]];
+	again_int = again_fp / 1000;
+	again_frac = again_fp % 1000;
+	int_time = (atime + 1) * (astep + 1) * 2780 / 1000;
 	count =  snprintf(buf, PAGE_SIZE, 
 			"{"
 			"\n\t\"407nm_count\": %d,"
@@ -1328,7 +1509,8 @@ static ssize_t raw_data_show(struct device *dev,
 			"\n\t\"visnm_count\": %d,"
 			"\n\t\"astep\": %d,"
 			"\n\t\"atime\": %d,"
-			"\n\t\"again\": %d"
+			"\n\t\"again\": %u.%01u,"
+			"\n\t\"integration_time_us\": %d"
 			"\n}",
 			chip->pdata->raw_data[IDX_f1_raw],
 			chip->pdata->raw_data[IDX_f2_raw],
@@ -1345,7 +1527,9 @@ static ssize_t raw_data_show(struct device *dev,
 			chip->pdata->raw_data[IDX_vis_raw],
 			astep,
 			atime,
-			again);
+			again_int,
+			again_frac,
+			int_time);
 	AMS_MUTEX_UNLOCK(&chip->lock);
 	return count;
 }
@@ -1402,7 +1586,11 @@ static ssize_t fifo_read(struct file *fp, struct kobject *kobj,
 }
 
 /* static DEVICE_ATTR_RW(als_mode); */
-static DEVICE_ATTR_RW(enable);
+static DEVICE_ATTR(enable, 0664, enable_show, enable_store);
+static DEVICE_ATTR(again, 0664, again_show, again_store);
+static DEVICE_ATTR(atime, 0664, atime_show, atime_store);
+static DEVICE_ATTR(astep, 0664, astep_show, astep_store);
+static DEVICE_ATTR_RO(ready);
 static DEVICE_ATTR_RO(id);
 static DEVICE_ATTR_RO(auxid);
 static DEVICE_ATTR_RO(revid);
@@ -1425,6 +1613,10 @@ static struct attribute *tcs344x_attrs[] = {
 	&dev_attr_raw_data.attr,
 	&dev_attr_chip_id.attr,
 	&dev_attr_freq.attr,
+	&dev_attr_again.attr,
+	&dev_attr_atime.attr,
+	&dev_attr_astep.attr,
+	&dev_attr_ready.attr,
 	NULL,
 };
 

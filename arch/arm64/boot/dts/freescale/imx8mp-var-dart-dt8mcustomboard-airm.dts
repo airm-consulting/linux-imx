@@ -260,7 +260,7 @@
 		*/
         
 		als_wtime = <0>;
-		als_auto_again = <1>;
+		als_auto_again = <0>;
 		als_again = <8>;
 		als_again_max = <153>;
 		als_persist = <0>;

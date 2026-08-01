@@ -681,6 +681,7 @@ struct tcs344x_chip {
 
     bool unpowered;
     bool enabled;
+    bool als_ready;
     bool is_als_valid;
     bool is_spectral_ready;
     bool in_asat;
