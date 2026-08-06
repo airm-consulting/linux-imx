@@ -264,7 +264,7 @@
 		als_again = <8>;
 		als_again_max = <153>;
 		als_persist = <0>;
-		als_azconfig = <0x00>;
+		als_azconfig = <0xFF>;
 		/*fd_time1 = <0x67>;*/
 		/*fd_time1 = <94>;*/
 		fd_time1 = <0x67>;

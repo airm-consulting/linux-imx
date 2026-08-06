@@ -297,6 +297,57 @@ static void init_flicker(struct tcs344x_chip * chip)
 	return;
 }
 
+static void clear_status_registers(struct tcs344x_chip *chip)
+{
+	uint8_t dummy;
+
+	dev_info(&chip->client->dev, "TCS344x: Clearing Status Regs\n");
+	/* Clear ALS interrupt + saturation + engine error */
+	ams_i2c_read(chip->client, TCS344x_REGADDR_ASTATUS,   &dummy);
+
+	/* Clear general status flags */
+	ams_i2c_read(chip->client, TCS344x_REGADDR_STATUS,    &dummy);
+	ams_i2c_read(chip->client, TCS344x_REGADDR_STATUS_2,  &dummy);
+	ams_i2c_read(chip->client, TCS344x_REGADDR_STATUS_3,  &dummy);
+	ams_i2c_read(chip->client, TCS344x_REGADDR_STATUS_4,  &dummy);
+	ams_i2c_read(chip->client, TCS344x_REGADDR_STATUS_5,  &dummy);
+
+	/* Some AMS parts require clearing ASTATUS6 as well */
+	ams_i2c_read(chip->client, TCS344x_REGADDR_ASTATUS6,  &dummy);
+}
+
+static void reset_als(struct tcs344x_chip *chip)
+{
+	dev_info(&chip->client->dev, "TCS344x: Reset ALS\n");
+
+	ams_i2c_write_direct(chip->client, TCS344x_REGADDR_ENABLE, 0x00);
+
+	ams_i2c_modify(chip->client, chip->shadow, TCS344x_REGADDR_INTENAB, TCS344x_INTENAB_AIEN, 0x00);
+
+	usleep_range(8000, 10000);
+
+	ams_i2c_write_direct(chip->client, TCS344x_REGADDR_ATIME,    chip->params.atime);
+	ams_i2c_write_direct(chip->client, TCS344x_REGADDR_ASTEP_L,  chip->params.ls_astep);
+	ams_i2c_write_direct(chip->client, TCS344x_REGADDR_ASTEP_H,  chip->params.ms_astep);
+	ams_i2c_write_direct(chip->client, TCS344x_REGADDR_CFG_1, chip->params.again);
+
+	clear_status_registers(chip);
+
+	set_spectral_mode(TCS344x_MODE_IDLE);
+	usleep_range(3000, 5000);
+
+	ams_i2c_write_direct(chip->client, TCS344x_REGADDR_ENABLE, TCS344x_PON);
+	usleep_range(3000, 5000);
+
+	ams_i2c_write_direct(chip->client, TCS344x_REGADDR_ENABLE, TCS344x_PON | TCS344x_AEN);
+
+	ams_i2c_modify(chip->client, chip->shadow, TCS344x_REGADDR_INTENAB, TCS344x_INTENAB_AIEN, TCS344x_INTENAB_AIEN);
+
+	set_spectral_mode(TCS344x_ALS_MODE);
+
+	chip->als_ready = false;
+}
+
 static void enable_flicker(struct tcs344x_chip *chip, u8 enable)
 {
 	if (enable) {
@@ -318,27 +369,32 @@ static void enable_flicker(struct tcs344x_chip *chip, u8 enable)
 static void enable_als(struct tcs344x_chip *chip, u8 enable)
 {
 	if (enable) {
-		set_spectral_mode(TCS344x_ALS_MODE);
-
-		ams_i2c_modify(chip->client, chip->shadow, TCS344x_REGADDR_INTENAB,
-				TCS344x_INTENAB_AIEN, TCS344x_INTENAB_AIEN );
-
-		ams_i2c_modify(chip->client, chip->shadow,
-				TCS344x_REGADDR_ENABLE, (TCS344x_AEN | TCS344x_PON), (TCS344x_AEN | TCS344x_PON));
-
+		/* now perform the full ALS reset */
+		reset_als(chip);
+		chip->enabled   = true;
+		chip->als_ready = false;
 	} else {
+		/* Disable ALS */
 		ams_i2c_write_direct(chip->client, TCS344x_REGADDR_ENABLE, 0x00);
-		ams_i2c_modify(chip->client, chip->shadow,
-				TCS344x_REGADDR_INTENAB, TCS344x_INTENAB_AIEN, 0x00);
 
+		/* Disable ALS interrupt */
+		ams_i2c_modify(chip->client, chip->shadow, TCS344x_REGADDR_INTENAB, TCS344x_INTENAB_AIEN, 0x00);
+
+		/* Allow ALS engine + SMUX to stop */
+		usleep_range(8000, 10000);
+
+		/* Clear all ALS status latches */
+		clear_status_registers(chip);
+
+		/* Put spectral engine in IDLE */
 		set_spectral_mode(TCS344x_MODE_IDLE);
-		chip->xyz.lux = 0;
-		chip->xyz.cct = 0;
 
+		chip->xyz.lux   = 0;
+		chip->xyz.cct   = 0;
+
+		chip->enabled   = false;
+		chip->als_ready = false;
 	}
-
-	chip->als_ready = false;
-	chip->enabled = enable;
 }
 
 /* Enable or disable the device - PON in REGADDR_ENABLE */
@@ -440,11 +496,11 @@ void smux_write_config_data(struct tcs344x_chip *chip, bool init, u8 smux_data[]
 		{
 			ret = ams_i2c_write_direct(chip->client, TCS344x_REGADDR_ENABLE, (TCS344x_AEN | /*TCS344x_FDEN |*/ TCS344x_PON));
 		}
-		ret = ams_i2c_write_direct(chip->client, TCS344x_REGADDR_CFG_20, 0x62);
+		ret = ams_i2c_write_direct(chip->client, TCS344x_REGADDR_CFG_20, 0x60);
 	}
 	else
 	{
-		ret = ams_i2c_write_direct(chip->client, TCS344x_REGADDR_CFG_20, 0x62);
+		ret = ams_i2c_write_direct(chip->client, TCS344x_REGADDR_CFG_20, 0x60);
 		ret = ams_i2c_write_direct(chip->client, TCS344x_REGADDR_ENABLE, (TCS344x_AEN | TCS344x_PON));
 	}
 
@@ -503,6 +559,7 @@ static int tcs344x_read_data(struct tcs344x_chip *chip)
 		/*
 		 * Organize the read ALS data in bytes to words
 		 */
+		chip->astatus_reg = data[0];
 		temp_value = ((data[2] << 8) | data[1]);
 		chip->pdata->out_data[IDX_z_raw] = temp_value;
 		temp_value = ((data[4] << 8) | data[3]);
@@ -1217,6 +1274,66 @@ int stop_spectral_measurement(struct tcs344x_chip *chip)
 /*
  * Sysfs ABI
  */
+static ssize_t regs_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	struct tcs344x_chip *chip = dev_get_drvdata(dev);
+	u8 *sh = chip->shadow;
+	int count;
+
+	AMS_MUTEX_LOCK(&chip->lock);
+
+	count = snprintf(buf, PAGE_SIZE,
+	"TCS344x_ENABLE=0x%02X\n"
+	"TCS344x_AOFFSET0_H=0x%02X\n"
+	"TCS344x_LED=0x%02X\n"
+	"TCS344x_ATIME=0x%02X\n"
+	"TCS344x_ASTEP_L=0x%02X\n"
+	"TCS344x_ASTEP_H=0x%02X\n"
+	"TCS344x_CFG_0=0x%02X\n"
+	"TCS344x_CFG_1=0x%02X\n"
+	"TCS344x_CFG_3=0x%02X\n"
+	"TCS344x_CFG_8=0x%02X\n"
+	"TCS344x_CFG_10=0x%02X\n"
+	"TCS344x_CFG_9=0x%02X\n"
+	"TCS344x_CFG_20=0x%02X\n"
+	"TCS344x_PERS=0x%02X\n"
+	"TCS344x_GPIO2=0x%02X\n"
+	"TCS344x_AGC_GAIN_MAX=0x%02X\n"
+	"TCS344x_AZCONFIG=0x%02X\n"
+	"TCS344x_FD_CFG_0=0x%02X\n"
+	"TCS344x_FD_CFG_1=0x%02X\n"
+	"TCS344x_FD_CFG_3=0x%02X\n"
+	"TCS344x_FIFO_MAP=0x%02X\n"
+	"TCS344x_PCFG_1=0x%02X\n",
+	sh[TCS344x_REGADDR_ENABLE],
+	sh[TCS344x_REGADDR_AOFFSET0_H],
+	sh[TCS344x_REGADDR_LED],
+	sh[TCS344x_REGADDR_ATIME],
+	sh[TCS344x_REGADDR_ASTEP_L],
+	sh[TCS344x_REGADDR_ASTEP_H],
+	sh[TCS344x_REGADDR_CFG_0],
+	sh[TCS344x_REGADDR_CFG_1],
+	sh[TCS344x_REGADDR_CFG_3],
+	sh[TCS344x_REGADDR_CFG_8],
+	sh[TCS344x_REGADDR_CFG_10],
+	sh[TCS344x_REGADDR_CFG_9],
+	sh[TCS344x_REGADDR_CFG_20],
+	sh[TCS344x_REGADDR_PERS],
+	sh[TCS344x_REGADDR_GPIO2],
+	sh[TCS344x_REGADDR_AGC_GAIN_MAX],
+	sh[TCS344x_REGADDR_AZCONFIG],
+	sh[TCS344x_REGADDR_FD_CFG_0],
+	sh[TCS344x_REGADDR_FD_CFG_1],
+	sh[TCS344x_REGADDR_FD_CFG_3],
+	sh[TCS344x_REGADDR_FIFO_MAP],
+	sh[TCS344x_REGADDR_PCFG_1]);
+	AMS_MUTEX_UNLOCK(&chip->lock);
+
+	return count;
+}
+
 static ssize_t ready_show(struct device *dev,
 		struct device_attribute *attr,
 		char *buf)
@@ -1259,7 +1376,6 @@ static ssize_t again_store(struct device *dev,
 	AMS_MUTEX_LOCK(&chip->lock);
 	chip->params.again = again;
 	sh[TCS344x_REGADDR_CFG_1] = chip->params.again & 0x1F;
-	tcs344x_flush_regs(chip);
 	AMS_MUTEX_UNLOCK(&chip->lock);
 
 	return size;
@@ -1309,7 +1425,6 @@ static ssize_t atime_store(struct device *dev,
 	AMS_MUTEX_LOCK(&chip->lock);
 	chip->params.atime = atime;
 	sh[TCS344x_REGADDR_ATIME] = (u8)atime;
-	tcs344x_flush_regs(chip);
 	AMS_MUTEX_UNLOCK(&chip->lock);
 
 	return size;
@@ -1350,9 +1465,10 @@ static ssize_t astep_store(struct device *dev,
 	}
 
 	AMS_MUTEX_LOCK(&chip->lock);
+	chip->params.ls_astep = (u8)(astep & 0xFF);
+	chip->params.ms_astep = (u8)(astep >> 8);
 	sh[TCS344x_REGADDR_ASTEP_L] = (u8)(astep & 0xFF);
 	sh[TCS344x_REGADDR_ASTEP_H] = (u8)(astep >> 8);
-	tcs344x_flush_regs(chip);
 	AMS_MUTEX_UNLOCK(&chip->lock);
 
 	return size;
@@ -1484,14 +1600,23 @@ static ssize_t raw_data_show(struct device *dev,
 	u16 atime;
 	u32 again_fp, again_int, again_frac;
 	u32 int_time;
+	u8 stat_reg, stat2_reg, stat3_reg,stat4_reg,stat5_reg;
 
 	AMS_MUTEX_LOCK(&chip->lock);
+
+	ams_i2c_read(chip->client, TCS344x_REGADDR_STATUS, &stat_reg);
+	ams_i2c_read(chip->client, TCS344x_REGADDR_STATUS_2, &stat2_reg);
+	ams_i2c_read(chip->client, TCS344x_REGADDR_STATUS_3, &stat3_reg);
+	ams_i2c_read(chip->client, TCS344x_REGADDR_STATUS_4, &stat4_reg);
+	ams_i2c_read(chip->client, TCS344x_REGADDR_STATUS_5, &stat5_reg);
+
+
 	astep = ((chip->pdata->raw_data[IDX_ASTEP_H] << 8) | chip->pdata->raw_data[IDX_ASTEP_L]);
 	atime = chip->pdata->raw_data[IDX_ATIME];
 	again_fp = tcs3448_gain_table[chip->pdata->raw_data[IDX_AGAIN]];
 	again_int = again_fp / 1000;
 	again_frac = again_fp % 1000;
-	int_time = (atime + 1) * (astep + 1) * 2780 / 1000;
+	int_time = ((u64)(atime + 1) * (astep + 1) * 2780) / 1000;
 	count =  snprintf(buf, PAGE_SIZE, 
 			"{"
 			"\n\t\"407nm_count\": %d,"
@@ -1507,31 +1632,39 @@ static ssize_t raw_data_show(struct device *dev,
 			"\n\t\"748nm_count\": %d,"
 			"\n\t\"855nm_count\": %d,"
 			"\n\t\"visnm_count\": %d,"
+			"\n\t\"astatus\": %d,"
+			"\n\t\"status\": %d,"
+			"\n\t\"status2\": %d,"
+			"\n\t\"status3\": %d,"
+			"\n\t\"status4\": %d,"
+			"\n\t\"status5\": %d,"
 			"\n\t\"astep\": %d,"
 			"\n\t\"atime\": %d,"
 			"\n\t\"again\": %u.%01u,"
 			"\n\t\"integration_time_us\": %d"
 			"\n}",
-			chip->pdata->raw_data[IDX_f1_raw],
-			chip->pdata->raw_data[IDX_f2_raw],
-			chip->pdata->raw_data[IDX_z_raw],
-			chip->pdata->raw_data[IDX_f3_raw],
-			chip->pdata->raw_data[IDX_f4_raw],
-			chip->pdata->raw_data[IDX_f5_raw],
-			chip->pdata->raw_data[IDX_y_raw],
-			chip->pdata->raw_data[IDX_x1_raw],
-			chip->pdata->raw_data[IDX_f6_raw],
-			chip->pdata->raw_data[IDX_f7_raw],
-			chip->pdata->raw_data[IDX_f8_raw],
-			chip->pdata->raw_data[IDX_nir_raw],
-			chip->pdata->raw_data[IDX_vis_raw],
-			astep,
-			atime,
-			again_int,
-			again_frac,
-			int_time);
-	AMS_MUTEX_UNLOCK(&chip->lock);
-	return count;
+		chip->pdata->raw_data[IDX_f1_raw],
+		chip->pdata->raw_data[IDX_f2_raw],
+		chip->pdata->raw_data[IDX_z_raw],
+		chip->pdata->raw_data[IDX_f3_raw],
+		chip->pdata->raw_data[IDX_f4_raw],
+		chip->pdata->raw_data[IDX_f5_raw],
+		chip->pdata->raw_data[IDX_y_raw],
+		chip->pdata->raw_data[IDX_x1_raw],
+		chip->pdata->raw_data[IDX_f6_raw],
+		chip->pdata->raw_data[IDX_f7_raw],
+		chip->pdata->raw_data[IDX_f8_raw],
+		chip->pdata->raw_data[IDX_nir_raw],
+		chip->pdata->raw_data[IDX_vis_raw],
+		chip->astatus_reg,
+		stat_reg, stat2_reg, stat3_reg, stat4_reg, stat5_reg,
+		astep,
+		atime,
+		again_int,
+		again_frac,
+		int_time);
+		AMS_MUTEX_UNLOCK(&chip->lock);
+		return count;
 }
 
 static ssize_t freq_show(struct device *dev,
@@ -1590,6 +1723,7 @@ static DEVICE_ATTR(enable, 0664, enable_show, enable_store);
 static DEVICE_ATTR(again, 0664, again_show, again_store);
 static DEVICE_ATTR(atime, 0664, atime_show, atime_store);
 static DEVICE_ATTR(astep, 0664, astep_show, astep_store);
+static DEVICE_ATTR_RO(regs);
 static DEVICE_ATTR_RO(ready);
 static DEVICE_ATTR_RO(id);
 static DEVICE_ATTR_RO(auxid);
@@ -1617,6 +1751,7 @@ static struct attribute *tcs344x_attrs[] = {
 	&dev_attr_atime.attr,
 	&dev_attr_astep.attr,
 	&dev_attr_ready.attr,
+	&dev_attr_regs.attr,
 	NULL,
 };
 

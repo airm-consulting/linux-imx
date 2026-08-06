@@ -689,6 +689,7 @@ struct tcs344x_chip {
     bool is_first_smux_done;
     u8 auxid;
     u8 freq;
+    u8 astatus_reg;
 	uint16_t chip_id;
 	uint64_t chip_serial_number;
     uint8_t rev;
