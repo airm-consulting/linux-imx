@@ -2044,9 +2044,9 @@ static int tcs344x_resume(struct device *dev)
 	struct tcs344x_chip *chip = dev_get_drvdata(dev);
 	bool als_on;
 
-	return 0;
 	pr_info("\nTCS344x: resume()\n");
 	AMS_MUTEX_LOCK(&chip->lock);
+	tcs344x_power_on(chip);
 	chip->in_suspend = 0;
 
 	dev_info(dev, "%s: powerd %d, als: needed %d  enabled %d", __func__,
