@@ -871,6 +871,12 @@ static enum hrtimer_restart handle_rx(struct hrtimer *timer)
                 bport->rx_state = RX_WAIT_START_BIT;                
                 must_restart_timer = true;
             }
+				else
+				{
+					bport->rx_bit_index++;
+					must_restart_timer = true;
+					bport->rx_state = RX_STOP_BIT;
+				}
         }
         else
         {
